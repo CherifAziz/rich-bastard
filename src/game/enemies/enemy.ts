@@ -14,7 +14,11 @@ export type EnemyState = {
   contactDamage: number;
   aggroRange: number;
   stopRange: number;
+  goldReward: number;
+  lootItemId: string | null;
+  lootQuantity: number;
   alive: boolean;
+  rewarded: boolean;
   stunnedUntil: number;
 };
 
@@ -38,7 +42,11 @@ export function createEnemy(
     contactDamage: definition.contactDamage,
     aggroRange: definition.aggroRange,
     stopRange: definition.stopRange,
+    goldReward: definition.goldReward,
+    lootItemId: definition.lootItemId,
+    lootQuantity: definition.lootQuantity,
     alive: true,
+    rewarded: false,
     stunnedUntil: 0,
   };
 }

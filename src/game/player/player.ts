@@ -26,7 +26,7 @@ export function createPlayer(x: number, y: number): PlayerState {
     maxHp: 100,
     damage: 10,
     defense: 0,
-    gold: 0,
+    gold: 100,
     equippedWeaponId: null,
     facingX: 1,
     facingY: 0,

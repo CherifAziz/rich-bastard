@@ -10,6 +10,7 @@ export const HIT_STUN_MS = 90;
 export type MeleeHit = {
   enemy: EnemyState;
   damage: number;
+  killed: boolean;
 };
 
 export type MeleeAttack = {
@@ -132,7 +133,7 @@ export function tryMeleeAttack(
 
     const damage = applyDamage(enemy, player.damage, now);
     if (damage > 0) {
-      hits.push({ enemy, damage });
+      hits.push({ enemy, damage, killed: !enemy.alive });
     }
   }
 

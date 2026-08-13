@@ -8,6 +8,9 @@ export type EnemyDefinition = {
   height: number;
   aggroRange: number;
   stopRange: number;
+  goldReward: number;
+  lootItemId: string | null;
+  lootQuantity: number;
 };
 
 export const RAT: EnemyDefinition = {
@@ -20,6 +23,9 @@ export const RAT: EnemyDefinition = {
   height: 22,
   aggroRange: 280,
   stopRange: 34,
+  goldReward: 7,
+  lootItemId: "cheese",
+  lootQuantity: 1,
 };
 
 export const ENEMY_BY_ID: Record<string, EnemyDefinition> = {

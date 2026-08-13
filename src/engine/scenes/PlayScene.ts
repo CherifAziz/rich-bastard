@@ -3,6 +3,7 @@ import { ENEMY_BY_ID } from "../../data/enemies";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { createPlayer } from "../../game/player/player";
+import { grantKillReward } from "../../game/rewards/rewards";
 import {
   TEST_ZONE_ENEMIES,
   TEST_ZONE_HEIGHT,
@@ -12,7 +13,7 @@ import {
   TEST_ZONE_WIDTH,
   type ZoneRect,
 } from "../../game/world/testZone";
-import { showDamageNumber, showMeleeSwing } from "../combat/feedback";
+import { showDamageNumber, showKillReward, showMeleeSwing } from "../combat/feedback";
 import { EnemyAvatar } from "../enemies/EnemyAvatar";
 import {
   createMovementKeys,
@@ -32,6 +33,7 @@ export class PlayScene extends Phaser.Scene {
   private enemies: EnemyAvatar[] = [];
   private moveKeys!: MovementKeys;
   private hudHp!: Phaser.GameObjects.Text;
+  private hudGold!: Phaser.GameObjects.Text;
   private hudAttack!: Phaser.GameObjects.Text;
   private hudCoords!: Phaser.GameObjects.Text;
 
@@ -99,6 +101,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.hudHp.setText(`HP ${this.player.state.hp}/${this.player.state.maxHp}`);
+    this.hudGold.setText(`$${this.player.state.gold}`);
     this.hudAttack.setText(
       canMeleeAttack(time, this.player.state.lastAttackAt)
         ? "Attaque prête"
@@ -144,7 +147,18 @@ export class PlayScene extends Phaser.Scene {
       avatar.flashHit(this);
       avatar.syncState();
 
-      if (!hit.enemy.alive) {
+      if (hit.killed) {
+        const reward = grantKillReward(this.player.state, hit.enemy);
+        if (reward) {
+          showKillReward(
+            this,
+            avatar.sprite.x,
+            avatar.sprite.y,
+            hit.enemy.name,
+            reward.gold,
+            reward.items,
+          );
+        }
         avatar.die(this);
         continue;
       }
@@ -242,13 +256,18 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(20);
 
+    this.hudGold = this.add
+      .text(16, 58, "", { ...style, color: "#e8c547" })
+      .setScrollFactor(0)
+      .setDepth(20);
+
     this.hudAttack = this.add
-      .text(16, 58, "", { ...style, fontSize: "14px", color: "#e8c547" })
+      .text(16, 78, "", { ...style, fontSize: "14px", color: "#d8d8e0" })
       .setScrollFactor(0)
       .setDepth(20);
 
     this.hudCoords = this.add
-      .text(16, 78, "", { ...style, fontSize: "14px", color: "#8a8a96" })
+      .text(16, 98, "", { ...style, fontSize: "14px", color: "#8a8a96" })
       .setScrollFactor(0)
       .setDepth(20);
   }

@@ -60,3 +60,46 @@ export function showDamageNumber(
     },
   });
 }
+
+export function showKillReward(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  enemyName: string,
+  gold: number,
+  items: { name: string; quantity: number }[],
+): void {
+  const lines = [
+    `${enemyName.toUpperCase()} DEFEATED`,
+    `+$${gold}`,
+    ...items.map((item) => `${item.name} x${item.quantity}`),
+  ];
+
+  lines.forEach((line, index) => {
+    const isTitle = index === 0;
+    const stack = (lines.length - 1 - index) * 22;
+    const label = scene.add
+      .text(x, y - 36 - stack, line, {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: isTitle ? "16px" : "18px",
+        fontStyle: "bold",
+        color: isTitle ? "#f0f0f4" : "#e8c547",
+        stroke: "#1a1208",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(17);
+
+    scene.tweens.add({
+      targets: label,
+      y: y - 80 - stack,
+      alpha: 0,
+      duration: 1100,
+      delay: index * 40,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        label.destroy();
+      },
+    });
+  });
+}
