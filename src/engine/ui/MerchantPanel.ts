@@ -1,7 +1,8 @@
 export type MerchantPanelCallbacks = {
   onSellOne: (itemId: string) => void;
   onSellAll: (itemId: string) => void;
-  onBuy: () => void;
+  onBuy: (weaponId: string) => void;
+  onEquip: (weaponId: string) => void;
   onClose: () => void;
 };
 
@@ -12,23 +13,29 @@ export type MerchantSellRow = {
   sellPrice: number;
 };
 
+export type MerchantWeaponRow = {
+  weaponId: string;
+  name: string;
+  damage: number;
+  price: number;
+  tag: string;
+  owned: boolean;
+  equipped: boolean;
+  canAfford: boolean;
+};
+
 export type MerchantPanelView = {
   sellItems: MerchantSellRow[];
+  weapons: MerchantWeaponRow[];
   gold: number;
-  weaponName: string;
-  weaponPrice: number;
-  weaponOwned: boolean;
 };
 
 export class MerchantPanel {
   private readonly root: HTMLElement;
   private readonly sellListEl: HTMLElement;
+  private readonly weaponListEl: HTMLElement;
   private readonly goldEl: HTMLElement;
-  private readonly weaponNameEl: HTMLElement;
-  private readonly weaponPriceEl: HTMLElement;
-  private readonly weaponStatusEl: HTMLElement;
   private readonly feedbackEl: HTMLElement;
-  private readonly buyButton: HTMLButtonElement;
   private readonly onEscape: (event: KeyboardEvent) => void;
   private openState = false;
 
@@ -43,13 +50,8 @@ export class MerchantPanel {
         <p class="merchant-section-title">SELL</p>
         <div id="merchant-sell-list"></div>
         <div class="merchant-divider"></div>
-        <p class="merchant-section-title">BUY</p>
-        <p class="merchant-item-name" id="merchant-weapon-name">Rusty Bat</p>
-        <p>Prix : <span id="merchant-weapon-price">$150</span></p>
-        <p class="merchant-weapon-status" id="merchant-weapon-status"></p>
-        <div class="merchant-actions">
-          <button type="button" id="merchant-buy">ACHETER</button>
-        </div>
+        <p class="merchant-section-title">WEAPONS</p>
+        <div id="merchant-weapon-list"></div>
         <p>Votre argent : <span id="merchant-gold">$0</span></p>
         <p class="merchant-feedback" id="merchant-feedback"></p>
         <button type="button" id="merchant-close">FERMER</button>
@@ -60,18 +62,11 @@ export class MerchantPanel {
     this.sellListEl = this.root.querySelector(
       "#merchant-sell-list",
     ) as HTMLElement;
+    this.weaponListEl = this.root.querySelector(
+      "#merchant-weapon-list",
+    ) as HTMLElement;
     this.goldEl = this.root.querySelector("#merchant-gold") as HTMLElement;
-    this.weaponNameEl = this.root.querySelector(
-      "#merchant-weapon-name",
-    ) as HTMLElement;
-    this.weaponPriceEl = this.root.querySelector(
-      "#merchant-weapon-price",
-    ) as HTMLElement;
-    this.weaponStatusEl = this.root.querySelector(
-      "#merchant-weapon-status",
-    ) as HTMLElement;
     this.feedbackEl = this.root.querySelector("#merchant-feedback") as HTMLElement;
-    this.buyButton = this.root.querySelector("#merchant-buy") as HTMLButtonElement;
 
     this.sellListEl.addEventListener("click", (event) => {
       const target = event.target as HTMLElement | null;
@@ -89,7 +84,22 @@ export class MerchantPanel {
       }
     });
 
-    this.buyButton.addEventListener("click", () => callbacks.onBuy());
+    this.weaponListEl.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest("button") as HTMLButtonElement | null;
+      const row = button?.closest(".merchant-weapon-row") as HTMLElement | null;
+      const weaponId = row?.dataset.weaponId;
+      if (!button || !weaponId || button.disabled) {
+        return;
+      }
+
+      if (button.dataset.action === "buy") {
+        callbacks.onBuy(weaponId);
+      } else if (button.dataset.action === "equip") {
+        callbacks.onEquip(weaponId);
+      }
+    });
+
     this.root
       .querySelector("#merchant-close")
       ?.addEventListener("click", () => callbacks.onClose());
@@ -121,8 +131,6 @@ export class MerchantPanel {
 
   refresh(view: MerchantPanelView): void {
     this.goldEl.textContent = `$${view.gold}`;
-    this.weaponNameEl.textContent = view.weaponName;
-    this.weaponPriceEl.textContent = `$${view.weaponPrice}`;
 
     this.sellListEl.innerHTML = view.sellItems
       .map((item) => {
@@ -141,16 +149,41 @@ export class MerchantPanel {
       })
       .join("");
 
-    if (view.weaponOwned) {
-      this.weaponStatusEl.textContent = "OWNED / EQUIPPED";
-      this.buyButton.disabled = true;
-    } else if (view.gold < view.weaponPrice) {
-      this.weaponStatusEl.textContent = "Fonds insuffisants";
-      this.buyButton.disabled = true;
-    } else {
-      this.weaponStatusEl.textContent = "";
-      this.buyButton.disabled = false;
-    }
+    this.weaponListEl.innerHTML = view.weapons
+      .map((weapon) => {
+        const price =
+          weapon.owned || weapon.price <= 0 ? "" : ` · $${weapon.price}`;
+        let action = "";
+        if (weapon.equipped) {
+          action = `<p class="merchant-weapon-status">EQUIPPED</p>`;
+        } else if (weapon.owned) {
+          action = `
+            <p class="merchant-weapon-status">OWNED</p>
+            <div class="merchant-actions">
+              <button type="button" data-action="equip">EQUIP</button>
+            </div>
+          `;
+        } else {
+          const disabled = weapon.canAfford ? "" : "disabled";
+          const status = weapon.canAfford ? "" : "Fonds insuffisants";
+          action = `
+            <p class="merchant-weapon-status">${status}</p>
+            <div class="merchant-actions">
+              <button type="button" data-action="buy" ${disabled}>BUY</button>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="merchant-weapon-row" data-weapon-id="${weapon.weaponId}">
+            <p class="merchant-item-name">${weapon.name}</p>
+            <p>${weapon.damage} DMG${price}</p>
+            <p class="merchant-weapon-tag">${weapon.tag}</p>
+            ${action}
+          </div>
+        `;
+      })
+      .join("");
   }
 
   showFeedback(text: string): void {

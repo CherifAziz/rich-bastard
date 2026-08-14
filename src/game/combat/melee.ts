@@ -3,9 +3,6 @@ import { isDashing } from "../player/dash";
 import { getEquippedWeapon } from "../player/player";
 import type { PlayerState } from "../player/player";
 
-export const MELEE_COOLDOWN_MS = 300;
-export const MELEE_RANGE = 48;
-export const MELEE_HALF_WIDTH = 22;
 export const MELEE_SWING_MS = 110;
 export const HIT_STUN_MS = 90;
 
@@ -22,11 +19,16 @@ export type MeleeAttack = {
   dirY: number;
   range: number;
   halfWidth: number;
+  knockback: number;
   hits: MeleeHit[];
 };
 
-export function canMeleeAttack(now: number, lastAttackAt: number): boolean {
-  return now - lastAttackAt >= MELEE_COOLDOWN_MS;
+export function canMeleeAttack(
+  now: number,
+  lastAttackAt: number,
+  cooldownMs: number,
+): boolean {
+  return now - lastAttackAt >= cooldownMs;
 }
 
 export function applyDamage(
@@ -89,7 +91,11 @@ export function tryMeleeAttack(
   aimY: number,
   now: number,
 ): MeleeAttack | null {
-  if (!canMeleeAttack(now, player.lastAttackAt) || isDashing(player, now)) {
+  const weapon = getEquippedWeapon(player);
+  if (
+    !canMeleeAttack(now, player.lastAttackAt, weapon.attackCooldownMs) ||
+    isDashing(player, now)
+  ) {
     return null;
   }
 
@@ -126,14 +132,14 @@ export function tryMeleeAttack(
         dirX,
         dirY,
         enemy,
-        MELEE_RANGE,
-        MELEE_HALF_WIDTH,
+        weapon.range,
+        weapon.halfWidth,
       )
     ) {
       continue;
     }
 
-    const damage = applyDamage(enemy, getEquippedWeapon(player).damage, now);
+    const damage = applyDamage(enemy, weapon.damage, now);
     if (damage > 0) {
       hits.push({ enemy, damage, killed: !enemy.alive });
     }
@@ -144,8 +150,9 @@ export function tryMeleeAttack(
     originY,
     dirX,
     dirY,
-    range: MELEE_RANGE,
-    halfWidth: MELEE_HALF_WIDTH,
+    range: weapon.range,
+    halfWidth: weapon.halfWidth,
+    knockback: weapon.knockback,
     hits,
   };
 }

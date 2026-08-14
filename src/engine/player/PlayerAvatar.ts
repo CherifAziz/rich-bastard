@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { THEME } from "../../data/theme";
 import {
   type PlayerState,
+  getEquippedWeapon,
   velocityFromInput,
 } from "../../game/player/player";
 import { DEPTH } from "../art/depth";
@@ -91,10 +92,32 @@ export class PlayerAvatar {
     this.applyFacing();
     this.attackTween?.stop();
     this.weaponHand.setRotation(this.restRotation);
+    const weapon = getEquippedWeapon(this.state);
+    const restX = this.weaponHand.x;
+    const restY = this.weaponHand.y;
+    const thrust = weapon.range >= 80 && weapon.halfWidth <= 14;
+
+    if (thrust) {
+      const dist = 16;
+      this.attackTween = scene.tweens.add({
+        targets: this.weaponHand,
+        x: restX + Math.cos(this.restRotation - Math.PI / 2) * dist,
+        y: restY + Math.sin(this.restRotation - Math.PI / 2) * dist,
+        duration: 70,
+        yoyo: true,
+        onComplete: () => {
+          this.weaponHand.setPosition(restX, restY);
+          this.attackTween = null;
+        },
+      });
+      return;
+    }
+
+    const arc = weapon.halfWidth >= 22 ? 1.45 : 1.05;
     this.attackTween = scene.tweens.add({
       targets: this.weaponHand,
-      rotation: this.restRotation - 1.25,
-      duration: 55,
+      rotation: this.restRotation - arc,
+      duration: weapon.attackCooldownMs <= 250 ? 42 : 70,
       yoyo: true,
       onComplete: () => {
         this.weaponHand.setRotation(this.restRotation);
@@ -192,17 +215,23 @@ export class PlayerAvatar {
     this.sidePose.setVisible(dir === "left" || dir === "right");
 
     if (dir === "up") {
-      this.weaponHand.setPosition(9, -2);
       this.restRotation = -0.4;
+      if (!this.attackTween) {
+        this.weaponHand.setPosition(9, -2);
+      }
       this.visual.sendToBack(this.weaponHand);
     } else if (dir === "down") {
-      this.weaponHand.setPosition(12, 7);
       this.restRotation = 0.55;
+      if (!this.attackTween) {
+        this.weaponHand.setPosition(12, 7);
+      }
       this.visual.bringToTop(this.weaponHand);
       this.visual.bringToTop(this.flash);
     } else {
-      this.weaponHand.setPosition(16, 2);
       this.restRotation = 0.38;
+      if (!this.attackTween) {
+        this.weaponHand.setPosition(16, 2);
+      }
       this.visual.bringToTop(this.weaponHand);
       this.visual.bringToTop(this.flash);
     }
@@ -310,6 +339,14 @@ export class PlayerAvatar {
       bat.add(scene.add.rectangle(0, 10, 6, 22, THEME.playerBat));
       bat.add(scene.add.ellipse(0, -8, 11, 18, THEME.playerBatDark));
       this.weaponHand.add(bat);
+      return;
+    }
+
+    if (this.state.equippedWeaponId === "iron_spear") {
+      const spear = scene.add.container(0, 0);
+      spear.add(scene.add.rectangle(0, 6, 3.2, 40, THEME.playerSpear));
+      spear.add(scene.add.triangle(0, -18, 0, -30, -4, -12, 4, -12, THEME.playerSpearTip));
+      this.weaponHand.add(spear);
       return;
     }
 

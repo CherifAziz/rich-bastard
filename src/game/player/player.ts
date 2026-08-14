@@ -13,6 +13,7 @@ export type PlayerState = {
   defense: number;
   gold: number;
   inventory: InventoryItem[];
+  ownedWeaponIds: string[];
   equippedWeaponId: string | null;
   facingX: number;
   facingY: number;
@@ -37,6 +38,7 @@ export function createPlayer(x: number, y: number): PlayerState {
     defense: 0,
     gold: 100,
     inventory: createInventory(),
+    ownedWeaponIds: [RUSTY_KNIFE.id],
     equippedWeaponId: RUSTY_KNIFE.id,
     facingX: 1,
     facingY: 0,
@@ -56,6 +58,24 @@ export function getEquippedWeapon(player: PlayerState): WeaponDefinition {
     : undefined;
 
   return equipped ?? RUSTY_KNIFE;
+}
+
+export function ownsWeapon(player: PlayerState, weaponId: string): boolean {
+  return player.ownedWeaponIds.includes(weaponId);
+}
+
+export function equipWeapon(
+  player: PlayerState,
+  weaponId: string,
+): { success: boolean; weaponId: string; alreadyEquipped: boolean } {
+  const weapon = WEAPON_BY_ID[weaponId];
+  if (!weapon || !ownsWeapon(player, weaponId)) {
+    return { success: false, weaponId, alreadyEquipped: false };
+  }
+
+  const alreadyEquipped = player.equippedWeaponId === weaponId;
+  player.equippedWeaponId = weaponId;
+  return { success: true, weaponId, alreadyEquipped };
 }
 
 export function velocityFromInput(

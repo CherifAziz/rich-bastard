@@ -1,5 +1,5 @@
 import { createPlayer, type PlayerState } from "../player/player";
-import { applyProgression, type SaveDataV1 } from "../save/saveData";
+import { applyProgression, type SaveDataV2 } from "../save/saveData";
 import { loadSave } from "../save/saveService";
 
 export type GameSession = {
@@ -14,7 +14,7 @@ export function createGameSession(): GameSession {
   };
 }
 
-export function createGameSessionFromSave(save: SaveDataV1): GameSession {
+export function createGameSessionFromSave(save: SaveDataV2): GameSession {
   const session = createGameSession();
   applyProgression(session.player, save.player);
   return session;

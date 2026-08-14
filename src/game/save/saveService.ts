@@ -3,10 +3,10 @@ import {
   SAVE_KEY,
   parseSaveData,
   saveDataFromPlayer,
-  type SaveDataV1,
+  type SaveDataV2,
 } from "./saveData";
 
-export function loadSave(): SaveDataV1 | null {
+export function loadSave(): SaveDataV2 | null {
   const raw = readRawSave();
   if (raw === null) {
     return null;
@@ -29,7 +29,7 @@ export function loadSave(): SaveDataV1 | null {
   return result.data;
 }
 
-export function saveGame(data: SaveDataV1): void {
+export function saveGame(data: SaveDataV2): void {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch {

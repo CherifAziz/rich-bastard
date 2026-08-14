@@ -47,7 +47,6 @@ import { InteractMarker } from "../world/InteractMarker";
 import { drawExplorationWorld } from "../world/explorationArt";
 import { followPlayer } from "../camera";
 
-const HIT_KNOCKBACK = 220;
 const PLAYER_HIT_KNOCKBACK = 280;
 const LOOT_PICKUP_RANGE = 24;
 const DEATH_DISPLAY_MS = 1200;
@@ -244,7 +243,7 @@ export class ExplorationScene extends Phaser.Scene {
       const dx = hit.enemy.x - this.player.state.x;
       const dy = hit.enemy.y - this.player.state.y;
       const length = Math.hypot(dx, dy) || 1;
-      avatar.applyKnockback(dx / length, dy / length, HIT_KNOCKBACK);
+      avatar.applyKnockback(dx / length, dy / length, attack.knockback);
     }
   }
 

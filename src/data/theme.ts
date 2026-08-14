@@ -21,6 +21,8 @@ export const THEME = {
   playerKnifeDark: 0x7a7568,
   playerBat: 0x8a5a32,
   playerBatDark: 0x5a3a20,
+  playerSpear: 0x6a4a2e,
+  playerSpearTip: 0xb8c0c8,
 
   ratFur: 0x8b5e45,
   ratFurDark: 0x5c3c2e,

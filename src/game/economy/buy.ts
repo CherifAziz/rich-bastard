@@ -1,5 +1,5 @@
 import { WEAPON_BY_ID, type WeaponDefinition } from "../../data/weapons";
-import type { PlayerState } from "../player/player";
+import { ownsWeapon, type PlayerState } from "../player/player";
 
 export type BuyWeaponResult = {
   success: boolean;
@@ -16,7 +16,7 @@ export function buyWeapon(
   weaponId: string,
 ): BuyWeaponResult {
   const weapon: WeaponDefinition | undefined = WEAPON_BY_ID[weaponId];
-  const alreadyOwned = player.equippedWeaponId === weaponId;
+  const alreadyOwned = ownsWeapon(player, weaponId);
 
   if (!weapon) {
     return {
@@ -55,6 +55,7 @@ export function buyWeapon(
   }
 
   player.gold -= weapon.price;
+  player.ownedWeaponIds.push(weapon.id);
   player.equippedWeaponId = weapon.id;
 
   return {

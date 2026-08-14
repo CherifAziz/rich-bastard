@@ -1,10 +1,11 @@
 import Phaser from "phaser";
 import { CHEESE_MERCHANT } from "../../data/merchants";
 import { ITEM_BY_ID } from "../../data/items";
-import { WEAPON_BY_ID } from "../../data/weapons";
+import { WEAPONS } from "../../data/weapons";
 import { buyWeapon } from "../../game/economy/buy";
 import { sellAll, sellItem } from "../../game/economy/sell";
 import { getItemQuantity } from "../../game/inventory/inventory";
+import { equipWeapon, ownsWeapon } from "../../game/player/player";
 import { isInTalkRange } from "../../game/merchants/merchant";
 import { isInRange } from "../../game/world/geometry";
 import { preparePlayerForScene } from "../../game/player/status";
@@ -90,7 +91,8 @@ export class TownScene extends Phaser.Scene {
     this.merchantPanel = new MerchantPanel({
       onSellOne: (itemId) => this.handleSell(itemId, 1),
       onSellAll: (itemId) => this.handleSell(itemId, "all"),
-      onBuy: () => this.handleBuy(),
+      onBuy: (weaponId) => this.handleBuy(weaponId),
+      onEquip: (weaponId) => this.handleEquip(weaponId),
       onClose: () => this.closeMerchant(),
     });
 
@@ -167,11 +169,6 @@ export class TownScene extends Phaser.Scene {
   }
 
   private refreshMerchantPanel(): void {
-    const weapon = WEAPON_BY_ID[CHEESE_MERCHANT.weaponId];
-    if (!weapon) {
-      return;
-    }
-
     this.merchantPanel.refresh({
       sellItems: Object.values(ITEM_BY_ID).map((item) => ({
         itemId: item.id,
@@ -179,16 +176,23 @@ export class TownScene extends Phaser.Scene {
         quantity: getItemQuantity(this.player.state.inventory, item.id),
         sellPrice: item.sellPrice,
       })),
+      weapons: WEAPONS.map((weapon) => ({
+        weaponId: weapon.id,
+        name: weapon.name,
+        damage: weapon.damage,
+        price: weapon.price,
+        tag: weapon.tag,
+        owned: ownsWeapon(this.player.state, weapon.id),
+        equipped: this.player.state.equippedWeaponId === weapon.id,
+        canAfford: this.player.state.gold >= weapon.price,
+      })),
       gold: this.player.state.gold,
-      weaponName: weapon.name,
-      weaponPrice: weapon.price,
-      weaponOwned: this.player.state.equippedWeaponId === weapon.id,
     });
   }
 
-  private handleBuy(): void {
-    const result = buyWeapon(this.player.state, CHEESE_MERCHANT.weaponId);
-    const weapon = WEAPON_BY_ID[result.weaponId];
+  private handleBuy(weaponId: string): void {
+    const result = buyWeapon(this.player.state, weaponId);
+    const weapon = WEAPONS.find((entry) => entry.id === result.weaponId);
 
     if (result.success && weapon) {
       persistPlayerProgress(this.player.state);
@@ -204,9 +208,24 @@ export class TownScene extends Phaser.Scene {
         weapon.damage,
       );
     } else if (result.alreadyOwned) {
-      this.merchantPanel.showFeedback("OWNED / EQUIPPED");
+      this.merchantPanel.showFeedback("OWNED");
     } else if (result.insufficientFunds) {
       this.merchantPanel.showFeedback("Fonds insuffisants");
+    }
+
+    this.refreshMerchantPanel();
+  }
+
+  private handleEquip(weaponId: string): void {
+    const result = equipWeapon(this.player.state, weaponId);
+    if (result.success) {
+      persistPlayerProgress(this.player.state);
+      const weapon = WEAPONS.find((entry) => entry.id === result.weaponId);
+      this.merchantPanel.showFeedback(
+        result.alreadyEquipped
+          ? "EQUIPPED"
+          : `EQUIPPED\n${weapon?.name ?? result.weaponId}`,
+      );
     }
 
     this.refreshMerchantPanel();

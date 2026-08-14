@@ -3,7 +3,7 @@ import { RUSTY_KNIFE, WEAPON_BY_ID } from "../../data/weapons";
 import type { InventoryItem } from "../inventory/inventory";
 import type { PlayerState } from "../player/player";
 
-export const SAVE_VERSION = 1 as const;
+export const SAVE_VERSION = 2 as const;
 export const SAVE_KEY = "rich-bastard-save-v1";
 
 export type SavedInventoryItem = {
@@ -20,11 +20,21 @@ export type SaveDataV1 = {
   };
 };
 
+export type SaveDataV2 = {
+  version: 2;
+  player: {
+    gold: number;
+    inventory: SavedInventoryItem[];
+    ownedWeaponIds: string[];
+    equippedWeaponId: string;
+  };
+};
+
 export type ParseSaveResult =
-  | { ok: true; data: SaveDataV1 }
+  | { ok: true; data: SaveDataV2 }
   | { ok: false; reason: string };
 
-export function saveDataFromPlayer(player: PlayerState): SaveDataV1 {
+export function saveDataFromPlayer(player: PlayerState): SaveDataV2 {
   return {
     version: SAVE_VERSION,
     player: {
@@ -33,6 +43,7 @@ export function saveDataFromPlayer(player: PlayerState): SaveDataV1 {
         itemId: item.itemId,
         quantity: item.quantity,
       })),
+      ownedWeaponIds: [...player.ownedWeaponIds],
       equippedWeaponId: player.equippedWeaponId ?? RUSTY_KNIFE.id,
     },
   };
@@ -40,11 +51,30 @@ export function saveDataFromPlayer(player: PlayerState): SaveDataV1 {
 
 export function applyProgression(
   player: PlayerState,
-  progression: SaveDataV1["player"],
+  progression: SaveDataV2["player"],
 ): void {
   player.gold = progression.gold;
   player.inventory = cloneInventory(progression.inventory);
+  player.ownedWeaponIds = [...progression.ownedWeaponIds];
   player.equippedWeaponId = progression.equippedWeaponId;
+}
+
+export function migrateV1ToV2(save: SaveDataV1): SaveDataV2 {
+  const equippedWeaponId = save.player.equippedWeaponId;
+  const ownedWeaponIds = [RUSTY_KNIFE.id];
+  if (equippedWeaponId !== RUSTY_KNIFE.id) {
+    ownedWeaponIds.push(equippedWeaponId);
+  }
+
+  return {
+    version: SAVE_VERSION,
+    player: {
+      gold: save.player.gold,
+      inventory: save.player.inventory,
+      ownedWeaponIds,
+      equippedWeaponId,
+    },
+  };
 }
 
 export function parseSaveData(value: unknown): ParseSaveResult {
@@ -53,6 +83,14 @@ export function parseSaveData(value: unknown): ParseSaveResult {
   }
 
   const root = value as Record<string, unknown>;
+  if (root.version === 1) {
+    const parsed = parseV1(root);
+    if (!parsed.ok) {
+      return parsed;
+    }
+    return { ok: true, data: migrateV1ToV2(parsed.data) };
+  }
+
   if (root.version !== SAVE_VERSION) {
     return {
       ok: false,
@@ -60,6 +98,12 @@ export function parseSaveData(value: unknown): ParseSaveResult {
     };
   }
 
+  return parseV2(root);
+}
+
+function parseSharedPlayer(
+  root: Record<string, unknown>,
+): { ok: true; player: Record<string, unknown> } | { ok: false; reason: string } {
   if (typeof root.player !== "object" || root.player === null) {
     return { ok: false, reason: "joueur manquant" };
   }
@@ -85,17 +129,99 @@ export function parseSaveData(value: unknown): ParseSaveResult {
     return inventory;
   }
 
+  return { ok: true, player };
+}
+
+function parseV1(
+  root: Record<string, unknown>,
+): { ok: true; data: SaveDataV1 } | { ok: false; reason: string } {
+  const shared = parseSharedPlayer(root);
+  if (!shared.ok) {
+    return shared;
+  }
+
+  const inventory = parseInventory(shared.player.inventory);
+  if (!inventory.ok) {
+    return inventory;
+  }
+
+  return {
+    ok: true,
+    data: {
+      version: 1,
+      player: {
+        gold: shared.player.gold as number,
+        inventory: inventory.items,
+        equippedWeaponId: shared.player.equippedWeaponId as string,
+      },
+    },
+  };
+}
+
+function parseV2(root: Record<string, unknown>): ParseSaveResult {
+  const shared = parseSharedPlayer(root);
+  if (!shared.ok) {
+    return shared;
+  }
+
+  const inventory = parseInventory(shared.player.inventory);
+  if (!inventory.ok) {
+    return inventory;
+  }
+
+  const owned = parseOwnedWeapons(
+    shared.player.ownedWeaponIds,
+    shared.player.equippedWeaponId as string,
+  );
+  if (!owned.ok) {
+    return owned;
+  }
+
   return {
     ok: true,
     data: {
       version: SAVE_VERSION,
       player: {
-        gold: player.gold,
+        gold: shared.player.gold as number,
         inventory: inventory.items,
-        equippedWeaponId: player.equippedWeaponId,
+        ownedWeaponIds: owned.ids,
+        equippedWeaponId: shared.player.equippedWeaponId as string,
       },
     },
   };
+}
+
+function parseOwnedWeapons(
+  value: unknown,
+  equippedWeaponId: string,
+): { ok: true; ids: string[] } | { ok: false; reason: string } {
+  if (!Array.isArray(value)) {
+    return { ok: false, reason: "armes possédées invalides" };
+  }
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (typeof entry !== "string" || !WEAPON_BY_ID[entry]) {
+      return { ok: false, reason: "arme possédée inconnue" };
+    }
+    if (seen.has(entry)) {
+      return { ok: false, reason: "arme possédée dupliquée" };
+    }
+    seen.add(entry);
+    ids.push(entry);
+  }
+
+  if (!seen.has(RUSTY_KNIFE.id)) {
+    return { ok: false, reason: "Rusty Knife manquante" };
+  }
+
+  if (!seen.has(equippedWeaponId)) {
+    return { ok: false, reason: "arme équipée non possédée" };
+  }
+
+  return { ok: true, ids };
 }
 
 function parseInventory(
