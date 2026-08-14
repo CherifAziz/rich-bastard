@@ -13,8 +13,126 @@ body {
 }
 
 #game {
+  position: relative;
   width: 100%;
   height: 100%;
+}
+
+#game-hud {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 10;
+  transform-origin: top left;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: #efe6d4;
+}
+
+.hud-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 236px;
+  padding: 8px 10px 9px;
+  background: rgba(28, 22, 16, 0.86);
+  border: 1px solid rgba(224, 180, 74, 0.5);
+  box-shadow: 0 0 0 1px #1a140e;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hud-hp {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d4544a;
+}
+
+.hud-gold {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e0b44a;
+}
+
+.hud-track {
+  height: 7px;
+  background: #3a201c;
+  overflow: hidden;
+}
+
+.hud-track-hp {
+  margin: 5px 0 7px;
+}
+
+.hud-fill {
+  height: 100%;
+  width: 100%;
+}
+
+.hud-fill-hp {
+  background: #d4544a;
+}
+
+.hud-weapon {
+  margin: 0 0 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hud-inv {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #f0d78c;
+  white-space: nowrap;
+}
+
+.hud-dash-row {
+  gap: 8px;
+}
+
+.hud-dash {
+  font-size: 10px;
+  color: #b8b09f;
+  min-width: 42px;
+}
+
+.hud-track-dash {
+  flex: 1;
+  background: #243038;
+}
+
+.hud-fill-dash {
+  background: #6eb3c9;
+}
+
+.hud-fill-dash.is-dash {
+  background: #f0d78c;
+}
+
+.hud-coords {
+  position: absolute;
+  top: 118px;
+  left: 12px;
+  margin: 0;
+  font-size: 11px;
+  color: #b8b09f;
+}
+
+.hud-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: #b8b09f;
+  text-shadow: 0 1px 0 #1a140e, 1px 0 0 #1a140e, -1px 0 0 #1a140e;
+  white-space: nowrap;
 }
 
 #merchant-panel {

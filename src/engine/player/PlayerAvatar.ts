@@ -14,10 +14,12 @@ export class PlayerAvatar {
   readonly state: PlayerState;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly visual: Phaser.GameObjects.Container;
-  private readonly armL: Phaser.GameObjects.Ellipse;
-  private readonly armR: Phaser.GameObjects.Ellipse;
-  private readonly head: Phaser.GameObjects.Arc;
-  private readonly hair: Phaser.GameObjects.Ellipse;
+  private readonly frontPose: Phaser.GameObjects.Container;
+  private readonly backPose: Phaser.GameObjects.Container;
+  private readonly sidePose: Phaser.GameObjects.Container;
+  private readonly frontArms: Phaser.GameObjects.Ellipse[];
+  private readonly backArms: Phaser.GameObjects.Ellipse[];
+  private readonly sideArms: Phaser.GameObjects.Ellipse[];
   private readonly weaponHand: Phaser.GameObjects.Container;
   private readonly flash: Phaser.GameObjects.Ellipse;
   private lastWeaponId: string | null = null;
@@ -49,30 +51,21 @@ export class PlayerAvatar {
     this.visual = scene.add.container(state.x, state.y);
     this.visual.setDepth(DEPTH.character);
 
-    const outline = scene.add.ellipse(0, 3, 20, 24, THEME.playerBoot);
-    const bootL = scene.add.ellipse(-5, 13, 7, 7, THEME.playerBoot);
-    const bootR = scene.add.ellipse(5, 13, 7, 7, THEME.playerBoot);
-    const body = scene.add.ellipse(0, 3, 17, 20, THEME.playerTunic);
-    const shirt = scene.add.ellipse(0, -1, 11, 9, THEME.playerShirt);
-    this.armL = scene.add.ellipse(-10, 3, 6, 12, THEME.playerSkin);
-    this.armR = scene.add.ellipse(10, 3, 6, 12, THEME.playerSkin);
-    this.head = scene.add.circle(0, -12, 9, THEME.playerSkin);
-    this.hair = scene.add.ellipse(0, -17, 16, 9, THEME.playerHair);
-    this.flash = scene.add.ellipse(0, 0, 28, 34, 0xfff4e0, 0);
+    this.frontArms = [];
+    this.backArms = [];
+    this.sideArms = [];
+    this.frontPose = this.buildFront(scene);
+    this.backPose = this.buildBack(scene);
+    this.sidePose = this.buildSide(scene);
 
     this.weaponHand = scene.add.container(13, 2);
     this.weaponHand.setRotation(this.restRotation);
+    this.flash = scene.add.ellipse(0, 0, 28, 34, 0xfff4e0, 0);
 
     this.visual.add([
-      outline,
-      bootL,
-      bootR,
-      this.armL,
-      body,
-      shirt,
-      this.armR,
-      this.head,
-      this.hair,
+      this.frontPose,
+      this.backPose,
+      this.sidePose,
       this.weaponHand,
       this.flash,
     ]);
@@ -171,35 +164,45 @@ export class PlayerAvatar {
       ? Math.sin(time / 80) * 1.5
       : Math.sin(time / 320) * 0.6;
     const arm = moving ? Math.sin(time / 90) * 2.2 : 0;
-    this.armL.y = 3 + arm;
-    this.armR.y = 3 - arm;
+    const arms = this.visibleArms();
+    arms[0].y = arms[0].y + arm;
+    arms[1].y = arms[1].y - arm;
     this.shadow.setPosition(this.sprite.x, this.sprite.y + 11);
     this.visual.setPosition(this.sprite.x, this.sprite.y + bob);
   }
 
+  private visibleArms(): Phaser.GameObjects.Ellipse[] {
+    const dir = cardinalFrom(this.state.facingX, this.state.facingY);
+    if (dir === "up") {
+      return this.backArms;
+    }
+    if (dir === "down") {
+      return this.frontArms;
+    }
+    return this.sideArms;
+  }
+
   private applyFacing(): void {
     const dir = cardinalFrom(this.state.facingX, this.state.facingY);
-    const flip = dir === "left" ? -1 : 1;
-    this.visual.setScale(flip, 1);
+    this.visual.setScale(dir === "left" ? -1 : 1, 1);
+    this.resetArmRests();
+
+    this.frontPose.setVisible(dir === "down");
+    this.backPose.setVisible(dir === "up");
+    this.sidePose.setVisible(dir === "left" || dir === "right");
 
     if (dir === "up") {
-      this.head.setPosition(0, -14);
-      this.hair.setPosition(0, -19);
-      this.weaponHand.setPosition(9, -4);
-      this.restRotation = -0.35;
+      this.weaponHand.setPosition(9, -2);
+      this.restRotation = -0.4;
       this.visual.sendToBack(this.weaponHand);
     } else if (dir === "down") {
-      this.head.setPosition(1, -11);
-      this.hair.setPosition(1, -16);
       this.weaponHand.setPosition(12, 7);
       this.restRotation = 0.55;
       this.visual.bringToTop(this.weaponHand);
       this.visual.bringToTop(this.flash);
     } else {
-      this.head.setPosition(2, -12);
-      this.hair.setPosition(2, -17);
-      this.weaponHand.setPosition(14, 2);
-      this.restRotation = 0.42;
+      this.weaponHand.setPosition(16, 2);
+      this.restRotation = 0.38;
       this.visual.bringToTop(this.weaponHand);
       this.visual.bringToTop(this.flash);
     }
@@ -207,6 +210,94 @@ export class PlayerAvatar {
     if (!this.attackTween) {
       this.weaponHand.setRotation(this.restRotation);
     }
+  }
+
+  private resetArmRests(): void {
+    this.frontArms[0].y = 3;
+    this.frontArms[1].y = 3;
+    this.backArms[0].y = 2;
+    this.backArms[1].y = 2;
+    this.sideArms[0].y = 3;
+    this.sideArms[1].y = 4;
+  }
+
+  private buildFront(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    const bootL = scene.add.ellipse(-5, 13, 7, 7, THEME.playerBoot);
+    const bootR = scene.add.ellipse(5, 13, 7, 7, THEME.playerBoot);
+    const armL = scene.add.ellipse(-11, 3, 6, 12, THEME.playerSkin);
+    const armR = scene.add.ellipse(11, 3, 6, 12, THEME.playerSkin);
+    const body = scene.add.ellipse(0, 3, 18, 21, THEME.playerTunic);
+    const shirt = scene.add.ellipse(0, 0, 12, 10, THEME.playerShirt);
+    const head = scene.add.circle(0, -12, 9, THEME.playerSkin);
+    const hair = scene.add.ellipse(0, -18, 16, 8, THEME.playerHair);
+    const brow = scene.add.ellipse(0, -14.5, 12, 3, THEME.playerHair);
+    const eyeL = scene.add.circle(-3.2, -12, 1.5, THEME.ink);
+    const eyeR = scene.add.circle(3.2, -12, 1.5, THEME.ink);
+    const mouth = scene.add.ellipse(0, -8.2, 4.5, 1.8, THEME.playerBoot);
+    pose.add([
+      bootL,
+      bootR,
+      armL,
+      body,
+      shirt,
+      armR,
+      head,
+      hair,
+      brow,
+      eyeL,
+      eyeR,
+      mouth,
+    ]);
+    this.frontArms.push(armL, armR);
+    return pose;
+  }
+
+  private buildBack(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    const bootL = scene.add.ellipse(-5, 13, 7, 7, THEME.playerBoot);
+    const bootR = scene.add.ellipse(5, 13, 7, 7, THEME.playerBoot);
+    const armL = scene.add.ellipse(-10, 2, 6, 12, THEME.playerSkin);
+    const armR = scene.add.ellipse(10, 2, 6, 12, THEME.playerSkin);
+    const body = scene.add.ellipse(0, 3, 18, 21, THEME.playerTunic);
+    const head = scene.add.circle(0, -12, 9, THEME.playerSkin);
+    const hair = scene.add.ellipse(0, -14, 18, 16, THEME.playerHair);
+    const nape = scene.add.ellipse(0, -7, 11, 7, THEME.playerHair);
+    pose.add([bootL, bootR, armL, armR, body, head, hair, nape]);
+    this.backArms.push(armL, armR);
+    return pose;
+  }
+
+  private buildSide(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    const bootBack = scene.add.ellipse(-2, 13, 6, 6, THEME.playerBoot);
+    const bootFront = scene.add.ellipse(4, 13, 8, 7, THEME.playerBoot);
+    const armBack = scene.add.ellipse(-5, 3, 5, 11, THEME.playerSkin);
+    const body = scene.add.ellipse(1, 3, 12, 20, THEME.playerTunic);
+    const shirt = scene.add.ellipse(3, 0, 7, 9, THEME.playerShirt);
+    const head = scene.add.ellipse(3, -12, 12, 14, THEME.playerSkin);
+    const hair = scene.add.ellipse(-1, -15, 14, 13, THEME.playerHair);
+    const hairTop = scene.add.ellipse(2, -19, 10, 6, THEME.playerHair);
+    const ear = scene.add.ellipse(1, -12, 4, 5, THEME.playerSkin);
+    const nose = scene.add.ellipse(9.2, -11, 3.6, 3.2, THEME.playerSkin);
+    const eye = scene.add.circle(7, -13, 1.5, THEME.ink);
+    const armFront = scene.add.ellipse(7, 4, 6, 13, THEME.playerSkin);
+    pose.add([
+      bootBack,
+      armBack,
+      body,
+      shirt,
+      bootFront,
+      head,
+      hair,
+      hairTop,
+      ear,
+      nose,
+      eye,
+      armFront,
+    ]);
+    this.sideArms.push(armBack, armFront);
+    return pose;
   }
 
   private redrawWeapon(): void {

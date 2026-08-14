@@ -18,10 +18,9 @@ export class EnemyAvatar {
   private readonly hpBg: Phaser.GameObjects.Rectangle;
   private readonly hpFill: Phaser.GameObjects.Rectangle;
   private readonly isBandit: boolean;
-  private armL: Phaser.GameObjects.Ellipse | null = null;
-  private armR: Phaser.GameObjects.Ellipse | null = null;
-  private head: Phaser.GameObjects.Arc | null = null;
-  private bandana: Phaser.GameObjects.Ellipse | null = null;
+  private frontPose: Phaser.GameObjects.Container | null = null;
+  private backPose: Phaser.GameObjects.Container | null = null;
+  private sidePose: Phaser.GameObjects.Container | null = null;
   private blade: Phaser.GameObjects.Rectangle | null = null;
   private telegraph: Phaser.GameObjects.Container | null = null;
   private telegraphFill: Phaser.GameObjects.Rectangle | null = null;
@@ -247,26 +246,24 @@ export class EnemyAvatar {
     this.visual.setRotation(0);
     this.visual.setScale(dir === "left" ? -1 : 1, 1);
 
-    if (!this.head || !this.bandana || !this.blade || !this.armR) {
+    if (!this.frontPose || !this.backPose || !this.sidePose || !this.blade) {
       return;
     }
 
+    this.frontPose.setVisible(dir === "down");
+    this.backPose.setVisible(dir === "up");
+    this.sidePose.setVisible(dir === "left" || dir === "right");
+
     if (dir === "up") {
-      this.head.setPosition(0, -13);
-      this.bandana.setPosition(0, -17);
-      this.blade.setPosition(8, -6);
+      this.blade.setPosition(8, -4);
       this.blade.setRotation(-0.9);
       this.visual.sendToBack(this.blade);
     } else if (dir === "down") {
-      this.head.setPosition(1, -10);
-      this.bandana.setPosition(1, -14);
       this.blade.setPosition(12, 8);
       this.blade.setRotation(0.7);
       this.visual.bringToTop(this.blade);
       this.visual.bringToTop(this.flash);
     } else {
-      this.head.setPosition(2, -11);
-      this.bandana.setPosition(2, -15);
       this.blade.setPosition(15, 2);
       this.blade.setRotation(0.4);
       this.visual.bringToTop(this.blade);
@@ -297,29 +294,67 @@ export class EnemyAvatar {
   }
 
   private buildBandit(scene: Phaser.Scene): void {
-    const outline = scene.add.ellipse(0, 3, 20, 24, THEME.ink);
-    const bootL = scene.add.ellipse(-5, 13, 7, 6, THEME.ink);
-    const bootR = scene.add.ellipse(5, 13, 7, 6, THEME.ink);
-    const body = scene.add.ellipse(0, 3, 17, 20, THEME.banditCloak);
-    const shirt = scene.add.ellipse(0, 1, 10, 10, THEME.banditShirt);
-    this.armL = scene.add.ellipse(-10, 3, 6, 12, THEME.banditSkin);
-    this.armR = scene.add.ellipse(11, 2, 6, 13, THEME.banditSkin);
-    this.head = scene.add.circle(0, -12, 8.5, THEME.banditSkin);
-    this.bandana = scene.add.ellipse(0, -16, 17, 8, THEME.banditBandana);
+    this.frontPose = this.buildBanditFront(scene);
+    this.backPose = this.buildBanditBack(scene);
+    this.sidePose = this.buildBanditSide(scene);
     this.blade = scene.add.rectangle(15, 2, 5, 18, THEME.banditSteel);
     this.blade.setRotation(0.4);
     this.visual.add([
-      outline,
-      bootL,
-      bootR,
-      this.armL,
-      body,
-      shirt,
-      this.armR,
+      this.frontPose,
+      this.backPose,
+      this.sidePose,
       this.blade,
-      this.head,
-      this.bandana,
       this.flash,
     ]);
+    this.applyBanditFacing();
+  }
+
+  private buildBanditFront(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    pose.add([
+      scene.add.ellipse(-5, 13, 7, 6, THEME.ink),
+      scene.add.ellipse(5, 13, 7, 6, THEME.ink),
+      scene.add.ellipse(-10, 3, 6, 12, THEME.banditSkin),
+      scene.add.ellipse(0, 3, 17, 20, THEME.banditCloak),
+      scene.add.ellipse(0, 1, 10, 10, THEME.banditShirt),
+      scene.add.ellipse(10, 3, 6, 12, THEME.banditSkin),
+      scene.add.circle(0, -11, 8.5, THEME.banditSkin),
+      scene.add.ellipse(0, -16, 17, 7, THEME.banditBandana),
+      scene.add.circle(-3, -11, 1.4, THEME.ink),
+      scene.add.circle(3, -11, 1.4, THEME.ink),
+    ]);
+    return pose;
+  }
+
+  private buildBanditBack(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    pose.add([
+      scene.add.ellipse(-5, 13, 7, 6, THEME.ink),
+      scene.add.ellipse(5, 13, 7, 6, THEME.ink),
+      scene.add.ellipse(-10, 2, 6, 12, THEME.banditSkin),
+      scene.add.ellipse(10, 2, 6, 12, THEME.banditSkin),
+      scene.add.ellipse(0, 3, 17, 20, THEME.banditCloak),
+      scene.add.circle(0, -11, 8.5, THEME.banditSkin),
+      scene.add.ellipse(0, -13, 17, 14, THEME.banditBandana),
+      scene.add.ellipse(0, -7, 10, 6, THEME.ink),
+    ]);
+    return pose;
+  }
+
+  private buildBanditSide(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const pose = scene.add.container(0, 0);
+    pose.add([
+      scene.add.ellipse(-2, 13, 6, 6, THEME.ink),
+      scene.add.ellipse(4, 13, 8, 6, THEME.ink),
+      scene.add.ellipse(-5, 3, 5, 11, THEME.banditSkin),
+      scene.add.ellipse(1, 3, 12, 20, THEME.banditCloak),
+      scene.add.ellipse(3, 1, 7, 9, THEME.banditShirt),
+      scene.add.ellipse(3, -11, 12, 14, THEME.banditSkin),
+      scene.add.ellipse(0, -15, 14, 10, THEME.banditBandana),
+      scene.add.ellipse(9, -10, 3.4, 3, THEME.banditSkin),
+      scene.add.circle(7, -12, 1.4, THEME.ink),
+      scene.add.ellipse(7, 4, 6, 13, THEME.banditSkin),
+    ]);
+    return pose;
   }
 }
