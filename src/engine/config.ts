@@ -1,5 +1,7 @@
 import Phaser from "phaser";
-import { PlayScene } from "./scenes/PlayScene";
+import { createGameSession } from "../game/state/gameSession";
+import { ExplorationScene } from "./scenes/ExplorationScene";
+import { TownScene } from "./scenes/TownScene";
 
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
@@ -22,7 +24,12 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
         debug: false,
       },
     },
-    scene: [PlayScene],
+    scene: [TownScene, ExplorationScene],
+    callbacks: {
+      preBoot: (game) => {
+        game.registry.set("session", createGameSession());
+      },
+    },
     banner: false,
   };
 }

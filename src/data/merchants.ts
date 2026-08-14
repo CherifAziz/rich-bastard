@@ -3,7 +3,7 @@ export const CHEESE_MERCHANT = {
   name: "Marchand",
   itemId: "cheese",
   weaponId: "rusty_bat",
-  x: 200,
-  y: 200,
+  x: 280,
+  y: 280,
   talkRange: 58,
 };

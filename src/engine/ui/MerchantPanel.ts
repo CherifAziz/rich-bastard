@@ -29,6 +29,7 @@ export class MerchantPanel {
   private readonly weaponStatusEl: HTMLElement;
   private readonly feedbackEl: HTMLElement;
   private readonly buyButton: HTMLButtonElement;
+  private readonly onEscape: (event: KeyboardEvent) => void;
   private openState = false;
 
   constructor(callbacks: MerchantPanelCallbacks) {
@@ -93,12 +94,13 @@ export class MerchantPanel {
       .querySelector("#merchant-close")
       ?.addEventListener("click", () => callbacks.onClose());
 
-    window.addEventListener("keydown", (event) => {
+    this.onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && this.openState) {
         event.preventDefault();
         callbacks.onClose();
       }
-    });
+    };
+    window.addEventListener("keydown", this.onEscape);
   }
 
   get isOpen(): boolean {
@@ -153,5 +155,11 @@ export class MerchantPanel {
 
   showFeedback(text: string): void {
     this.feedbackEl.textContent = text;
+  }
+
+  destroy(): void {
+    this.close();
+    window.removeEventListener("keydown", this.onEscape);
+    this.root.remove();
   }
 }

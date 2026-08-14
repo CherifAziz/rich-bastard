@@ -58,20 +58,6 @@ export function getEquippedWeapon(player: PlayerState): WeaponDefinition {
   return equipped ?? RUSTY_KNIFE;
 }
 
-export function respawnPlayer(
-  player: PlayerState,
-  x: number,
-  y: number,
-): void {
-  player.hp = player.maxHp;
-  player.x = x;
-  player.y = y;
-  player.invulnerableUntil = 0;
-  player.dashUntil = 0;
-  player.dashCooldownUntil = 0;
-  player.hitStunUntil = 0;
-}
-
 export function velocityFromInput(
   dirX: number,
   dirY: number,
