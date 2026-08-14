@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { THEME } from "../../data/theme";
+import { ENEMY_WINDUP_MS } from "../../game/combat/enemyMelee";
 import type { EnemyState, PendingEnemyAttack } from "../../game/enemies/enemy";
 import { DEPTH } from "../art/depth";
 import { cardinalFrom } from "../art/facing";
@@ -23,8 +24,10 @@ export class EnemyAvatar {
   private backPose: Phaser.GameObjects.Container | null = null;
   private sidePose: Phaser.GameObjects.Container | null = null;
   private bladeVisual: Phaser.GameObjects.Container | null = null;
+  private blade: Phaser.GameObjects.Rectangle | null = null;
+  private bladeGlow: Phaser.GameObjects.Ellipse | null = null;
   private telegraph: Phaser.GameObjects.Container | null = null;
-  private telegraphFill: Phaser.GameObjects.Rectangle | null = null;
+  private telegraphGfx: Phaser.GameObjects.Graphics | null = null;
   private facingX = 0;
   private facingY = 1;
   private strikeDir: { x: number; y: number } | null = null;
@@ -139,8 +142,10 @@ export class EnemyAvatar {
           this.strikeDir = null;
           this.strikeProgress = 0;
           this.lastTip = null;
+          this.applyWindupGlow(0);
         } else {
           this.strikeProgress = Math.max(0, progress);
+          this.applyWindupGlow(Math.max(0, 0.35 - progress * 0.7));
         }
       }
       this.applyBanditFacing();
@@ -187,51 +192,33 @@ export class EnemyAvatar {
       return;
     }
 
-    const centerX = attack.originX + attack.dirX * (attack.range / 2);
-    const centerY = attack.originY + attack.dirY * (attack.range / 2);
+    const intensity = windupIntensity(attack, now);
     const angle = Math.atan2(attack.dirY, attack.dirX);
-    const pulse = 0.34 + 0.24 * Math.abs(Math.sin(now / 70));
-    const height = attack.halfWidth * 2;
+    const length = 34 + intensity * 8;
 
-    if (!this.telegraph || !this.telegraphFill) {
+    if (!this.telegraph || !this.telegraphGfx) {
       const scene = this.sprite.scene;
-      this.telegraphFill = scene.add.rectangle(
-        0,
-        0,
-        attack.range,
-        height,
-        THEME.telegraphFill,
-        1,
-      );
-      this.telegraphFill.setStrokeStyle(3, THEME.telegraphEdge, 1);
-      const chevron = scene.add.triangle(
-        attack.range / 2 - 10,
-        0,
-        10,
-        0,
-        -8,
-        -attack.halfWidth + 3,
-        -8,
-        attack.halfWidth - 3,
-        THEME.telegraphEdge,
-      );
-      this.telegraph = scene.add.container(centerX, centerY, [
-        this.telegraphFill,
-        chevron,
+      this.telegraphGfx = scene.add.graphics();
+      this.telegraph = scene.add.container(this.sprite.x, this.sprite.y, [
+        this.telegraphGfx,
       ]);
-      this.telegraph.setDepth(DEPTH.telegraph);
+      this.telegraph.setDepth(DEPTH.fx);
     }
 
-    this.telegraph.setPosition(centerX, centerY);
+    this.drawTelegraphCue(length, intensity);
+    this.telegraph.setPosition(this.sprite.x, this.sprite.y);
     this.telegraph.setRotation(angle);
-    this.telegraphFill.setAlpha(pulse);
     this.telegraph.setVisible(true);
+    this.applyWindupGlow(intensity);
   }
 
   clearTelegraph(): void {
     this.telegraph?.destroy();
     this.telegraph = null;
-    this.telegraphFill = null;
+    this.telegraphGfx = null;
+    if (!this.strikeDir) {
+      this.applyWindupGlow(0);
+    }
   }
 
   die(scene: Phaser.Scene): void {
@@ -333,12 +320,14 @@ export class EnemyAvatar {
 
     const pose = this.strikeDir
       ? this.bladeStrikePose()
-      : {
-          x: this.restBladeOffset().x,
-          y: this.restBladeOffset().y,
-          angle: this.restBladeAngle(),
-          trail: false,
-        };
+      : this.state.pendingAttack
+        ? this.bladeWindupPose(this.state.pendingAttack)
+        : {
+            x: this.restBladeOffset().x,
+            y: this.restBladeOffset().y,
+            angle: this.restBladeAngle(),
+            trail: false,
+          };
 
     this.bladeVisual.setPosition(
       this.sprite.x + pose.x,
@@ -350,6 +339,40 @@ export class EnemyAvatar {
     );
   }
 
+  private bladeWindupPose(attack: PendingEnemyAttack): {
+    x: number;
+    y: number;
+    angle: number;
+    trail: boolean;
+  } {
+    const cocked = this.cockedPose(attack.dirX, attack.dirY);
+    const rest = this.restBladeOffset();
+    const restAngle = this.restBladeAngle();
+    const t = smoothstep(
+      Math.min(1, windupIntensity(attack, this.sprite.scene.time.now) / 0.38),
+    );
+    return {
+      x: lerp(rest.x, cocked.x, t),
+      y: lerp(rest.y, cocked.y, t),
+      angle: lerpAngle(restAngle, cocked.angle, t),
+      trail: false,
+    };
+  }
+
+  private cockedPose(
+    dirX: number,
+    dirY: number,
+  ): { x: number; y: number; angle: number } {
+    const length = Math.hypot(dirX, dirY) || 1;
+    const nx = dirX / length;
+    const ny = dirY / length;
+    return {
+      x: -nx * 8,
+      y: -ny * 8,
+      angle: Math.atan2(ny, nx) - 0.85,
+    };
+  }
+
   private bladeStrikePose(): {
     x: number;
     y: number;
@@ -357,42 +380,30 @@ export class EnemyAvatar {
     trail: boolean;
   } {
     const dir = this.strikeDir ?? { x: 1, y: 0 };
+    const cocked = this.cockedPose(dir.x, dir.y);
     const rest = this.restBladeOffset();
     const restAngle = this.restBladeAngle();
     const aim = Math.atan2(dir.y, dir.x);
-    const start = aim - 0.85;
     const finish = aim + 0.7;
     const p = this.strikeProgress;
-    const handX = dir.x * 12;
-    const handY = dir.y * 12;
+    const followX = dir.x * 12;
+    const followY = dir.y * 12;
 
-    if (p < 0.12) {
-      const t = p / 0.12;
+    if (p < 0.48) {
+      const t = smoothstep(p / 0.48);
       return {
-        x: rest.x + (handX - rest.x) * t,
-        y: rest.y + (handY - rest.y) * t,
-        angle: restAngle + Phaser.Math.Angle.Wrap(start - restAngle) * t,
-        trail: false,
+        x: lerp(cocked.x, followX, t),
+        y: lerp(cocked.y, followY, t),
+        angle: lerpAngle(cocked.angle, finish, t),
+        trail: t > 0.12,
       };
     }
 
-    if (p < 0.55) {
-      const t = (p - 0.12) / 0.43;
-      const eased = t * t * (3 - 2 * t);
-      return {
-        x: handX,
-        y: handY,
-        angle: start + Phaser.Math.Angle.Wrap(finish - start) * eased,
-        trail: true,
-      };
-    }
-
-    const t = (p - 0.55) / 0.45;
-    const eased = t * t * (3 - 2 * t);
+    const t = smoothstep((p - 0.48) / 0.52);
     return {
-      x: handX + (rest.x - handX) * eased,
-      y: handY + (rest.y - handY) * eased,
-      angle: finish + Phaser.Math.Angle.Wrap(restAngle - finish) * eased,
+      x: lerp(followX, rest.x, t),
+      y: lerp(followY, rest.y, t),
+      angle: lerpAngle(finish, restAngle, t),
       trail: false,
     };
   }
@@ -429,6 +440,57 @@ export class EnemyAvatar {
     this.lastTip = tip;
   }
 
+  private drawTelegraphCue(length: number, intensity: number): void {
+    if (!this.telegraphGfx) {
+      return;
+    }
+
+    const alpha = 0.18 + 0.42 * intensity;
+    this.telegraphGfx.clear();
+    this.telegraphGfx.lineStyle(1.6, THEME.telegraphEdge, alpha);
+    this.telegraphGfx.beginPath();
+    this.telegraphGfx.moveTo(10, 0);
+    this.telegraphGfx.lineTo(length, 0);
+    this.telegraphGfx.strokePath();
+
+    this.telegraphGfx.lineStyle(1.2, THEME.telegraphFill, alpha * 0.85);
+    for (let i = 1; i <= 3; i++) {
+      const x = 10 + (length - 14) * (i / 4);
+      this.telegraphGfx.beginPath();
+      this.telegraphGfx.moveTo(x, -3.5);
+      this.telegraphGfx.lineTo(x, 3.5);
+      this.telegraphGfx.strokePath();
+    }
+
+    this.telegraphGfx.fillStyle(THEME.telegraphFill, 0.22 + 0.38 * intensity);
+    this.telegraphGfx.fillTriangle(
+      length + 7,
+      0,
+      length - 5,
+      -5,
+      length - 5,
+      5,
+    );
+  }
+
+  private applyWindupGlow(intensity: number): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    this.flash.setFillStyle(THEME.telegraphFill, 1);
+    this.flash.setAlpha(intensity <= 0 ? 0 : 0.08 + 0.28 * intensity);
+    this.bladeGlow?.setAlpha(intensity <= 0 ? 0 : 0.12 + 0.4 * intensity);
+    this.blade?.setFillStyle(
+      intensity <= 0
+        ? THEME.banditSteel
+        : lerpColor(THEME.banditSteel, THEME.telegraphFill, intensity * 0.55),
+    );
+    if (intensity <= 0) {
+      this.flash.setFillStyle(0xfff4e0, 1);
+    }
+  }
+
   private buildRat(scene: Phaser.Scene): void {
     const tail = scene.add.ellipse(8, 11, 16, 4.5, THEME.ratFurDark);
     const body = scene.add.ellipse(0, 2, 16, 12, THEME.ratFur);
@@ -462,9 +524,10 @@ export class EnemyAvatar {
       this.flash,
     ]);
     this.bladeVisual = scene.add.container(this.state.x, this.state.y);
-    this.bladeVisual.add(
-      scene.add.rectangle(0, 0, 5, 20, THEME.banditSteel).setOrigin(0.5, 1),
-    );
+    this.bladeGlow = scene.add.ellipse(0, -10, 16, 22, THEME.telegraphFill, 0);
+    this.blade = scene.add.rectangle(0, 0, 5, 20, THEME.banditSteel);
+    this.blade.setOrigin(0.5, 1);
+    this.bladeVisual.add([this.bladeGlow, this.blade]);
     this.bladeVisual.setDepth(DEPTH.character + 1);
     this.applyBanditFacing();
     this.layoutBlade();
@@ -518,4 +581,35 @@ export class EnemyAvatar {
     ]);
     return pose;
   }
+}
+
+function windupIntensity(attack: PendingEnemyAttack, now: number): number {
+  const elapsed = ENEMY_WINDUP_MS - (attack.resolveAt - now);
+  return Math.max(0, Math.min(1, elapsed / ENEMY_WINDUP_MS));
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function lerpAngle(a: number, b: number, t: number): number {
+  return a + Phaser.Math.Angle.Wrap(b - a) * t;
+}
+
+function smoothstep(t: number): number {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
+function lerpColor(from: number, to: number, t: number): number {
+  const ar = (from >> 16) & 0xff;
+  const ag = (from >> 8) & 0xff;
+  const ab = from & 0xff;
+  const br = (to >> 16) & 0xff;
+  const bg = (to >> 8) & 0xff;
+  const bb = to & 0xff;
+  const r = Math.round(lerp(ar, br, t));
+  const g = Math.round(lerp(ag, bg, t));
+  const b = Math.round(lerp(ab, bb, t));
+  return (r << 16) | (g << 8) | b;
 }
