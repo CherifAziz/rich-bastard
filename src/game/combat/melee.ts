@@ -1,4 +1,5 @@
 import type { EnemyState } from "../enemies/enemy";
+import { getEquippedWeapon } from "../player/player";
 import type { PlayerState } from "../player/player";
 
 export const MELEE_COOLDOWN_MS = 300;
@@ -131,7 +132,7 @@ export function tryMeleeAttack(
       continue;
     }
 
-    const damage = applyDamage(enemy, player.damage, now);
+    const damage = applyDamage(enemy, getEquippedWeapon(player).damage, now);
     if (damage > 0) {
       hits.push({ enemy, damage, killed: !enemy.alive });
     }

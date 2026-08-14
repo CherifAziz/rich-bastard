@@ -58,6 +58,18 @@ body {
   margin: 6px 0;
 }
 
+.merchant-divider {
+  height: 1px;
+  margin: 16px 0;
+  background: #3a3428;
+}
+
+.merchant-weapon-status {
+  min-height: 1.2em;
+  color: #e8c547;
+  font-weight: 700;
+}
+
 .merchant-actions {
   display: flex;
   gap: 8px;
@@ -92,4 +104,5 @@ body {
   min-height: 1.2em;
   color: #e8c547;
   font-weight: 700;
+  white-space: pre-line;
 }

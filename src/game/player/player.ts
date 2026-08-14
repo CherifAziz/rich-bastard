@@ -1,5 +1,6 @@
 import type { InventoryItem } from "../inventory/inventory";
 import { createInventory } from "../inventory/inventory";
+import { RUSTY_KNIFE, WEAPON_BY_ID, type WeaponDefinition } from "../../data/weapons";
 
 export type PlayerState = {
   x: number;
@@ -32,11 +33,19 @@ export function createPlayer(x: number, y: number): PlayerState {
     defense: 0,
     gold: 100,
     inventory: createInventory(),
-    equippedWeaponId: null,
+    equippedWeaponId: RUSTY_KNIFE.id,
     facingX: 1,
     facingY: 0,
     lastAttackAt: -1000,
   };
+}
+
+export function getEquippedWeapon(player: PlayerState): WeaponDefinition {
+  const equipped = player.equippedWeaponId
+    ? WEAPON_BY_ID[player.equippedWeaponId]
+    : undefined;
+
+  return equipped ?? RUSTY_KNIFE;
 }
 
 export function velocityFromInput(

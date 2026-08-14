@@ -2,12 +2,14 @@ import Phaser from "phaser";
 import { CHEESE_MERCHANT } from "../../data/merchants";
 import { ENEMY_BY_ID } from "../../data/enemies";
 import { ITEM_BY_ID } from "../../data/items";
+import { WEAPON_BY_ID } from "../../data/weapons";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
+import { buyWeapon } from "../../game/economy/buy";
 import { sellAll, sellItem } from "../../game/economy/sell";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem, getItemQuantity } from "../../game/inventory/inventory";
 import { isInTalkRange } from "../../game/merchants/merchant";
-import { createPlayer } from "../../game/player/player";
+import { createPlayer, getEquippedWeapon } from "../../game/player/player";
 import {
   createGroundLoot,
   grantKillReward,
@@ -22,7 +24,7 @@ import {
   TEST_ZONE_WIDTH,
   type ZoneRect,
 } from "../../game/world/testZone";
-import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback, showSaleFeedback } from "../combat/feedback";
+import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback, showPurchaseFeedback, showSaleFeedback } from "../combat/feedback";
 import { EnemyAvatar } from "../enemies/EnemyAvatar";
 import {
   createMovementKeys,
@@ -51,6 +53,8 @@ export class PlayScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private hudHp!: Phaser.GameObjects.Text;
   private hudGold!: Phaser.GameObjects.Text;
+  private hudWeapon!: Phaser.GameObjects.Text;
+  private hudDamage!: Phaser.GameObjects.Text;
   private hudInventory!: Phaser.GameObjects.Text;
   private hudAttack!: Phaser.GameObjects.Text;
   private hudCoords!: Phaser.GameObjects.Text;
@@ -76,6 +80,7 @@ export class PlayScene extends Phaser.Scene {
     this.merchantPanel = new MerchantPanel({
       onSellOne: () => this.handleSell(1),
       onSellAll: () => this.handleSell("all"),
+      onBuy: () => this.handleBuy(),
       onClose: () => this.closeMerchant(),
     });
 
@@ -162,8 +167,11 @@ export class PlayScene extends Phaser.Scene {
       }
     }
 
+    const weapon = getEquippedWeapon(this.player.state);
     this.hudHp.setText(`HP ${this.player.state.hp}/${this.player.state.maxHp}`);
     this.hudGold.setText(`$${this.player.state.gold}`);
+    this.hudWeapon.setText(`⚔️ ${weapon.name}`);
+    this.hudDamage.setText(`DMG ${weapon.damage}`);
     this.hudInventory.setText(
       `Cheese ×${getItemQuantity(this.player.state.inventory, "cheese")}`,
     );
@@ -326,18 +334,28 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(20);
 
+    this.hudWeapon = this.add
+      .text(16, 78, "", { ...style, color: "#d8d8e0" })
+      .setScrollFactor(0)
+      .setDepth(20);
+
+    this.hudDamage = this.add
+      .text(16, 98, "", { ...style, color: "#e05a4f" })
+      .setScrollFactor(0)
+      .setDepth(20);
+
     this.hudInventory = this.add
-      .text(16, 78, "", { ...style, color: "#f4c430" })
+      .text(16, 118, "", { ...style, color: "#f4c430" })
       .setScrollFactor(0)
       .setDepth(20);
 
     this.hudAttack = this.add
-      .text(16, 98, "", { ...style, fontSize: "14px", color: "#d8d8e0" })
+      .text(16, 138, "", { ...style, fontSize: "14px", color: "#d8d8e0" })
       .setScrollFactor(0)
       .setDepth(20);
 
     this.hudCoords = this.add
-      .text(16, 118, "", { ...style, fontSize: "14px", color: "#8a8a96" })
+      .text(16, 158, "", { ...style, fontSize: "14px", color: "#8a8a96" })
       .setScrollFactor(0)
       .setDepth(20);
   }
@@ -411,16 +429,45 @@ export class PlayScene extends Phaser.Scene {
 
   private refreshMerchantPanel(): void {
     const item = ITEM_BY_ID[CHEESE_MERCHANT.itemId];
-    if (!item) {
+    const weapon = WEAPON_BY_ID[CHEESE_MERCHANT.weaponId];
+    if (!item || !weapon) {
       return;
     }
 
-    this.merchantPanel.refresh(
-      item.name,
-      getItemQuantity(this.player.state.inventory, item.id),
-      item.sellPrice,
-      this.player.state.gold,
-    );
+    this.merchantPanel.refresh({
+      itemName: item.name,
+      quantity: getItemQuantity(this.player.state.inventory, item.id),
+      sellPrice: item.sellPrice,
+      gold: this.player.state.gold,
+      weaponName: weapon.name,
+      weaponPrice: weapon.price,
+      weaponOwned: this.player.state.equippedWeaponId === weapon.id,
+    });
+  }
+
+  private handleBuy(): void {
+    const result = buyWeapon(this.player.state, CHEESE_MERCHANT.weaponId);
+    const weapon = WEAPON_BY_ID[result.weaponId];
+
+    if (result.success && weapon) {
+      this.merchantPanel.showFeedback(
+        `PURCHASED\n${result.weaponName}\n-$${result.goldSpent}`,
+      );
+      showPurchaseFeedback(
+        this,
+        this.player.state.x,
+        this.player.state.y,
+        result.weaponName,
+        result.goldSpent,
+        weapon.damage,
+      );
+    } else if (result.alreadyOwned) {
+      this.merchantPanel.showFeedback("OWNED / EQUIPPED");
+    } else if (result.insufficientFunds) {
+      this.merchantPanel.showFeedback("Fonds insuffisants");
+    }
+
+    this.refreshMerchantPanel();
   }
 
   private handleSell(mode: 1 | "all"): void {

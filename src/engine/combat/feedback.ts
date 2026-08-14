@@ -162,3 +162,41 @@ export function showSaleFeedback(
     },
   });
 }
+
+export function showPurchaseFeedback(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  weaponName: string,
+  goldSpent: number,
+  damage: number,
+): void {
+  const label = scene.add
+    .text(
+      x,
+      y - 36,
+      `PURCHASED\n${weaponName}\n-$${goldSpent}\n⚔️ ${weaponName}\nDMG ${damage}`,
+      {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: "16px",
+        fontStyle: "bold",
+        color: "#e8c547",
+        stroke: "#1a1208",
+        strokeThickness: 3,
+        align: "center",
+      },
+    )
+    .setOrigin(0.5)
+    .setDepth(17);
+
+  scene.tweens.add({
+    targets: label,
+    y: y - 90,
+    alpha: 0,
+    duration: 1400,
+    ease: "Quad.easeOut",
+    onComplete: () => {
+      label.destroy();
+    },
+  });
+}
