@@ -129,3 +129,36 @@ export function showPickupFeedback(
     },
   });
 }
+
+export function showSaleFeedback(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  name: string,
+  quantity: number,
+  gold: number,
+): void {
+  const label = scene.add
+    .text(x, y - 36, `Sold ${name} ×${quantity}\n+$${gold}`, {
+      fontFamily: "Segoe UI, sans-serif",
+      fontSize: "16px",
+      fontStyle: "bold",
+      color: "#e8c547",
+      stroke: "#1a1208",
+      strokeThickness: 3,
+      align: "center",
+    })
+    .setOrigin(0.5)
+    .setDepth(17);
+
+  scene.tweens.add({
+    targets: label,
+    y: y - 70,
+    alpha: 0,
+    duration: 900,
+    ease: "Quad.easeOut",
+    onComplete: () => {
+      label.destroy();
+    },
+  });
+}

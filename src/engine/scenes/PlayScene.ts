@@ -1,8 +1,12 @@
 import Phaser from "phaser";
+import { CHEESE_MERCHANT } from "../../data/merchants";
 import { ENEMY_BY_ID } from "../../data/enemies";
+import { ITEM_BY_ID } from "../../data/items";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
+import { sellAll, sellItem } from "../../game/economy/sell";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem, getItemQuantity } from "../../game/inventory/inventory";
+import { isInTalkRange } from "../../game/merchants/merchant";
 import { createPlayer } from "../../game/player/player";
 import {
   createGroundLoot,
@@ -18,7 +22,7 @@ import {
   TEST_ZONE_WIDTH,
   type ZoneRect,
 } from "../../game/world/testZone";
-import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback } from "../combat/feedback";
+import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback, showSaleFeedback } from "../combat/feedback";
 import { EnemyAvatar } from "../enemies/EnemyAvatar";
 import {
   createMovementKeys,
@@ -26,7 +30,9 @@ import {
   type MovementKeys,
 } from "../input/movementInput";
 import { LootDrop } from "../loot/LootDrop";
+import { MerchantStand } from "../merchants/MerchantStand";
 import { PlayerAvatar } from "../player/PlayerAvatar";
+import { MerchantPanel } from "../ui/MerchantPanel";
 
 const FLOOR_COLOR = 0x2a3d32;
 const WALL_COLOR = 0x1c1c26;
@@ -39,7 +45,10 @@ export class PlayScene extends Phaser.Scene {
   private player!: PlayerAvatar;
   private enemies: EnemyAvatar[] = [];
   private lootDrops: LootDrop[] = [];
+  private merchantStand!: MerchantStand;
+  private merchantPanel!: MerchantPanel;
   private moveKeys!: MovementKeys;
+  private interactKey!: Phaser.Input.Keyboard.Key;
   private hudHp!: Phaser.GameObjects.Text;
   private hudGold!: Phaser.GameObjects.Text;
   private hudInventory!: Phaser.GameObjects.Text;
@@ -63,6 +72,12 @@ export class PlayScene extends Phaser.Scene {
     );
 
     this.spawnEnemies();
+    this.merchantStand = new MerchantStand(this);
+    this.merchantPanel = new MerchantPanel({
+      onSellOne: () => this.handleSell(1),
+      onSellAll: () => this.handleSell("all"),
+      onClose: () => this.closeMerchant(),
+    });
 
     const enemyGroup = this.physics.add.group(
       this.enemies.map((enemy) => enemy.sprite),
@@ -76,6 +91,12 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player.sprite, true, 0.16, 0.16);
 
     this.moveKeys = createMovementKeys(this);
+    const keyboard = this.input.keyboard;
+    if (!keyboard) {
+      throw new Error("Keyboard input is not available");
+    }
+    keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.E);
+    this.interactKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.input.setDefaultCursor("crosshair");
     this.input.on("pointerdown", this.onPointerDown, this);
 
@@ -85,29 +106,60 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(time: number): void {
-    const axis = readMoveAxis(this.moveKeys);
-    this.player.applyMoveInput(axis.x, axis.y);
-    this.player.syncState();
-    this.collectNearbyLoot();
+    const shopOpen = this.merchantPanel.isOpen;
+    const inTalkRange = isInTalkRange(
+      this.player.state.x,
+      this.player.state.y,
+      CHEESE_MERCHANT.x,
+      CHEESE_MERCHANT.y,
+      CHEESE_MERCHANT.talkRange,
+    );
 
-    for (const enemy of this.enemies) {
-      if (!enemy.state.alive) {
-        continue;
+    this.merchantStand.setPromptVisible(inTalkRange && !shopOpen);
+
+    if (
+      !shopOpen &&
+      inTalkRange &&
+      Phaser.Input.Keyboard.JustDown(this.interactKey)
+    ) {
+      this.openMerchant();
+    }
+
+    if (shopOpen) {
+      this.player.applyMoveInput(0, 0);
+      this.player.syncState();
+      for (const enemy of this.enemies) {
+        if (enemy.state.alive) {
+          enemy.applyVelocity(0, 0);
+        }
       }
+    } else {
+      const axis = readMoveAxis(this.moveKeys);
+      this.player.applyMoveInput(axis.x, axis.y);
+      this.player.syncState();
+      this.collectNearbyLoot();
+    }
 
-      if (time < enemy.state.stunnedUntil) {
+    if (!shopOpen) {
+      for (const enemy of this.enemies) {
+        if (!enemy.state.alive) {
+          continue;
+        }
+
+        if (time < enemy.state.stunnedUntil) {
+          enemy.syncState();
+          continue;
+        }
+
+        const velocity = chaseVelocity(
+          enemy.state,
+          this.player.state.x,
+          this.player.state.y,
+          time,
+        );
+        enemy.applyVelocity(velocity.x, velocity.y);
         enemy.syncState();
-        continue;
       }
-
-      const velocity = chaseVelocity(
-        enemy.state,
-        this.player.state.x,
-        this.player.state.y,
-        time,
-      );
-      enemy.applyVelocity(velocity.x, velocity.y);
-      enemy.syncState();
     }
 
     this.hudHp.setText(`HP ${this.player.state.hp}/${this.player.state.maxHp}`);
@@ -126,7 +178,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    if (pointer.button !== 0) {
+    if (this.merchantPanel.isOpen || pointer.button !== 0) {
       return;
     }
 
@@ -260,7 +312,7 @@ export class PlayScene extends Phaser.Scene {
     };
 
     this.add
-      .text(16, 16, "ZQSD · clic gauche", style)
+      .text(16, 16, "ZQSD · clic · E marchand", style)
       .setScrollFactor(0)
       .setDepth(20);
 
@@ -344,5 +396,53 @@ export class PlayScene extends Phaser.Scene {
       drop.loot.name,
       drop.loot.quantity,
     );
+  }
+
+  private openMerchant(): void {
+    this.player.body.setVelocity(0, 0);
+    this.merchantPanel.open();
+    this.refreshMerchantPanel();
+  }
+
+  private closeMerchant(): void {
+    this.merchantPanel.close();
+    this.game.canvas.focus();
+  }
+
+  private refreshMerchantPanel(): void {
+    const item = ITEM_BY_ID[CHEESE_MERCHANT.itemId];
+    if (!item) {
+      return;
+    }
+
+    this.merchantPanel.refresh(
+      item.name,
+      getItemQuantity(this.player.state.inventory, item.id),
+      item.sellPrice,
+      this.player.state.gold,
+    );
+  }
+
+  private handleSell(mode: 1 | "all"): void {
+    const result =
+      mode === "all"
+        ? sellAll(this.player.state, CHEESE_MERCHANT.itemId)
+        : sellItem(this.player.state, CHEESE_MERCHANT.itemId, 1);
+
+    if (result.success) {
+      this.merchantPanel.showFeedback(
+        `Sold ${result.itemName} ×${result.quantitySold}  +$${result.goldGained}`,
+      );
+      showSaleFeedback(
+        this,
+        this.player.state.x,
+        this.player.state.y,
+        result.itemName,
+        result.quantitySold,
+        result.goldGained,
+      );
+    }
+
+    this.refreshMerchantPanel();
   }
 }
