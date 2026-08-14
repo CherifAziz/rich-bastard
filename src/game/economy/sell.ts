@@ -15,11 +15,18 @@ export function sellItem(
   player: PlayerState,
   itemId: string,
   quantity: number,
+  unitPrice: number,
 ): SaleResult {
   const item = ITEM_BY_ID[itemId];
   const owned = getItemQuantity(player.inventory, itemId);
 
-  if (!item || quantity <= 0 || owned <= 0) {
+  if (
+    !item ||
+    quantity <= 0 ||
+    owned <= 0 ||
+    !Number.isFinite(unitPrice) ||
+    unitPrice < 0
+  ) {
     return {
       success: false,
       itemId,
@@ -31,7 +38,7 @@ export function sellItem(
   }
 
   const quantitySold = Math.min(quantity, owned);
-  const goldGained = quantitySold * item.sellPrice;
+  const goldGained = quantitySold * unitPrice;
   removeItem(player.inventory, itemId, quantitySold);
   player.gold += goldGained;
 
@@ -45,6 +52,15 @@ export function sellItem(
   };
 }
 
-export function sellAll(player: PlayerState, itemId: string): SaleResult {
-  return sellItem(player, itemId, getItemQuantity(player.inventory, itemId));
+export function sellAll(
+  player: PlayerState,
+  itemId: string,
+  unitPrice: number,
+): SaleResult {
+  return sellItem(
+    player,
+    itemId,
+    getItemQuantity(player.inventory, itemId),
+    unitPrice,
+  );
 }

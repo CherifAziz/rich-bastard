@@ -1,17 +1,29 @@
+import type { HubId } from "../../data/hubs";
 import { borderWalls, type EnemySpawn, type InteractSpot, type ZoneRect } from "./geometry";
 
 export const EXPLORATION_WIDTH = 2560;
 export const EXPLORATION_HEIGHT = 1600;
 export const EXPLORATION_WALL_THICKNESS = 48;
 
-export const EXPLORATION_ENTRY = {
+export const EXPLORATION_WEST_SPAWN = {
   x: 220,
   y: 280,
 };
 
-export const EXPLORATION_EXIT: InteractSpot = {
+export const EXPLORATION_EAST_SPAWN = {
+  x: 2320,
+  y: 640,
+};
+
+export const EXPLORATION_WEST_EXIT: InteractSpot = {
   x: 180,
   y: 160,
+  talkRange: 64,
+};
+
+export const EXPLORATION_EAST_EXIT: InteractSpot = {
+  x: 2420,
+  y: 640,
   talkRange: 64,
 };
 
@@ -46,3 +58,7 @@ export const EXPLORATION_OBSTACLES: ZoneRect[] = [
   { x: 1760, y: 1080, width: 200, height: 80 },
   { x: 720, y: 1200, width: 120, height: 180 },
 ];
+
+export function explorationSpawnForHub(hubId: HubId): { x: number; y: number } {
+  return hubId === "outpost" ? EXPLORATION_EAST_SPAWN : EXPLORATION_WEST_SPAWN;
+}

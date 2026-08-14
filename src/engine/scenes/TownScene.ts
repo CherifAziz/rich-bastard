@@ -1,15 +1,5 @@
-import Phaser from "phaser";
-import { CHEESE_MERCHANT } from "../../data/merchants";
-import { ITEM_BY_ID } from "../../data/items";
-import { WEAPONS } from "../../data/weapons";
-import { buyWeapon } from "../../game/economy/buy";
-import { sellAll, sellItem } from "../../game/economy/sell";
-import { getItemQuantity } from "../../game/inventory/inventory";
-import { equipWeapon, ownsWeapon } from "../../game/player/player";
-import { isInTalkRange } from "../../game/merchants/merchant";
-import { isInRange } from "../../game/world/geometry";
-import { preparePlayerForScene } from "../../game/player/status";
-import { persistPlayerProgress } from "../../game/save/saveService";
+import { TOWN_MARKET } from "../../data/markets";
+import { TOWN_MERCHANT } from "../../data/merchants";
 import {
   TOWN_EXIT,
   TOWN_HEIGHT,
@@ -18,240 +8,26 @@ import {
   TOWN_WALLS,
   TOWN_WIDTH,
 } from "../../game/world/town";
-import {
-  showGoldLost,
-  showPurchaseFeedback,
-  showSaleFeedback,
-} from "../combat/feedback";
-import {
-  createMovementKeys,
-  type MovementKeys,
-} from "../input/movementInput";
-import { MerchantStand } from "../merchants/MerchantStand";
-import { PlayerAvatar } from "../player/PlayerAvatar";
-import { tickPlayerMotion } from "../player/playerMotion";
-import { getGameSession } from "../session";
-import { GameHud } from "../ui/GameHud";
-import { MerchantPanel } from "../ui/MerchantPanel";
-import { createActionKeys, createBlockers } from "../world/drawZone";
-import { InteractMarker } from "../world/InteractMarker";
 import { drawTownWorld } from "../world/townArt";
-import { followPlayer } from "../camera";
+import { SafeHubScene } from "./SafeHubScene";
 
-export class TownScene extends Phaser.Scene {
-  private player!: PlayerAvatar;
-  private merchantStand!: MerchantStand;
-  private merchantPanel!: MerchantPanel;
-  private exitMarker!: InteractMarker;
-  private moveKeys!: MovementKeys;
-  private interactKey!: Phaser.Input.Keyboard.Key;
-  private dashKey!: Phaser.Input.Keyboard.Key;
-  private hud!: GameHud;
-  private wasDashing = false;
-
+export class TownScene extends SafeHubScene {
   constructor() {
-    super("town");
-  }
-
-  create(): void {
-    this.wasDashing = false;
-
-    const session = getGameSession(this);
-    preparePlayerForScene(session.player, TOWN_SPAWN.x, TOWN_SPAWN.y);
-    persistPlayerProgress(session.player);
-
-    this.physics.world.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
-    this.cameras.main.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
-
-    drawTownWorld(this);
-    const blockers = createBlockers(this, TOWN_WALLS, TOWN_OBSTACLES);
-
-    this.player = new PlayerAvatar(this, session.player);
-    this.player.placeAt(TOWN_SPAWN.x, TOWN_SPAWN.y);
-
-    if (session.lastGoldLost > 0) {
-      showGoldLost(
-        this,
-        TOWN_SPAWN.x,
-        TOWN_SPAWN.y,
-        session.lastGoldLost,
-      );
-      session.lastGoldLost = 0;
-    }
-
-    this.merchantStand = new MerchantStand(this);
-    this.exitMarker = new InteractMarker(
-      this,
-      TOWN_EXIT.x,
-      TOWN_EXIT.y,
-      "SORTIE DE LA VILLE",
-      "E — PARTIR EN EXPÉDITION",
-    );
-
-    this.merchantPanel = new MerchantPanel({
-      onSellOne: (itemId) => this.handleSell(itemId, 1),
-      onSellAll: (itemId) => this.handleSell(itemId, "all"),
-      onBuy: (weaponId) => this.handleBuy(weaponId),
-      onEquip: (weaponId) => this.handleEquip(weaponId),
-      onClose: () => this.closeMerchant(),
+    super("town", {
+      hubId: "town",
+      width: TOWN_WIDTH,
+      height: TOWN_HEIGHT,
+      spawn: TOWN_SPAWN,
+      exit: TOWN_EXIT,
+      walls: TOWN_WALLS,
+      obstacles: TOWN_OBSTACLES,
+      merchant: TOWN_MERCHANT,
+      market: TOWN_MARKET,
+      standStyle: "town",
+      drawWorld: drawTownWorld,
+      exitTitle: "SORTIE",
+      exitPrompt: "E — PARTIR",
+      hint: "ZQSD  ·  ESPACE dash  ·  E parler / partir",
     });
-
-    this.physics.add.collider(this.player.sprite, blockers);
-    followPlayer(this, this.player.sprite);
-
-    this.moveKeys = createMovementKeys(this);
-    const actions = createActionKeys(this);
-    this.interactKey = actions.interactKey;
-    this.dashKey = actions.dashKey;
-
-    this.hud = new GameHud(
-      this,
-      "ZQSD  ·  ESPACE dash  ·  E parler / partir",
-    );
-    this.game.canvas.setAttribute("tabindex", "0");
-    this.game.canvas.focus();
-
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.merchantPanel.destroy();
-    });
-  }
-
-  update(time: number): void {
-    const shopOpen = this.merchantPanel.isOpen;
-    const nearMerchant = isInTalkRange(
-      this.player.state.x,
-      this.player.state.y,
-      CHEESE_MERCHANT.x,
-      CHEESE_MERCHANT.y,
-      CHEESE_MERCHANT.talkRange,
-    );
-    const nearExit = isInRange(
-      this.player.state.x,
-      this.player.state.y,
-      TOWN_EXIT.x,
-      TOWN_EXIT.y,
-      TOWN_EXIT.talkRange,
-    );
-
-    this.merchantStand.setPromptVisible(nearMerchant && !shopOpen);
-    this.exitMarker.setPromptVisible(nearExit && !shopOpen);
-
-    if (!shopOpen && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-      if (nearMerchant) {
-        this.openMerchant();
-      } else if (nearExit) {
-        this.scene.start("exploration");
-        return;
-      }
-    }
-
-    this.wasDashing = tickPlayerMotion(
-      this,
-      this.player,
-      this.moveKeys,
-      this.dashKey,
-      time,
-      shopOpen,
-      this.wasDashing,
-    );
-    this.hud.refresh(this.player.state, time);
-  }
-
-  private openMerchant(): void {
-    this.player.body.setVelocity(0, 0);
-    this.merchantPanel.open();
-    this.refreshMerchantPanel();
-  }
-
-  private closeMerchant(): void {
-    this.merchantPanel.close();
-    this.game.canvas.focus();
-  }
-
-  private refreshMerchantPanel(): void {
-    this.merchantPanel.refresh({
-      sellItems: Object.values(ITEM_BY_ID).map((item) => ({
-        itemId: item.id,
-        name: item.name,
-        quantity: getItemQuantity(this.player.state.inventory, item.id),
-        sellPrice: item.sellPrice,
-      })),
-      weapons: WEAPONS.map((weapon) => ({
-        weaponId: weapon.id,
-        name: weapon.name,
-        damage: weapon.damage,
-        price: weapon.price,
-        tag: weapon.tag,
-        owned: ownsWeapon(this.player.state, weapon.id),
-        equipped: this.player.state.equippedWeaponId === weapon.id,
-        canAfford: this.player.state.gold >= weapon.price,
-      })),
-      gold: this.player.state.gold,
-    });
-  }
-
-  private handleBuy(weaponId: string): void {
-    const result = buyWeapon(this.player.state, weaponId);
-    const weapon = WEAPONS.find((entry) => entry.id === result.weaponId);
-
-    if (result.success && weapon) {
-      persistPlayerProgress(this.player.state);
-      this.merchantPanel.showFeedback(
-        `PURCHASED\n${result.weaponName}\n-$${result.goldSpent}`,
-      );
-      showPurchaseFeedback(
-        this,
-        this.player.state.x,
-        this.player.state.y,
-        result.weaponName,
-        result.goldSpent,
-        weapon.damage,
-      );
-    } else if (result.alreadyOwned) {
-      this.merchantPanel.showFeedback("OWNED");
-    } else if (result.insufficientFunds) {
-      this.merchantPanel.showFeedback("Fonds insuffisants");
-    }
-
-    this.refreshMerchantPanel();
-  }
-
-  private handleEquip(weaponId: string): void {
-    const result = equipWeapon(this.player.state, weaponId);
-    if (result.success) {
-      persistPlayerProgress(this.player.state);
-      const weapon = WEAPONS.find((entry) => entry.id === result.weaponId);
-      this.merchantPanel.showFeedback(
-        result.alreadyEquipped
-          ? "EQUIPPED"
-          : `EQUIPPED\n${weapon?.name ?? result.weaponId}`,
-      );
-    }
-
-    this.refreshMerchantPanel();
-  }
-
-  private handleSell(itemId: string, mode: 1 | "all"): void {
-    const result =
-      mode === "all"
-        ? sellAll(this.player.state, itemId)
-        : sellItem(this.player.state, itemId, 1);
-
-    if (result.success) {
-      persistPlayerProgress(this.player.state);
-      this.merchantPanel.showFeedback(
-        `Sold ${result.itemName} ×${result.quantitySold}  +$${result.goldGained}`,
-      );
-      showSaleFeedback(
-        this,
-        this.player.state.x,
-        this.player.state.y,
-        result.itemName,
-        result.quantitySold,
-        result.goldGained,
-      );
-    }
-
-    this.refreshMerchantPanel();
   }
 }

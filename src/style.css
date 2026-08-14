@@ -86,9 +86,10 @@ body {
 
 .hud-inv {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 11px;
   color: #f0d78c;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .hud-dash-row {
@@ -150,7 +151,7 @@ body {
 }
 
 .merchant-card {
-  width: min(400px, 92vw);
+  width: min(420px, 92vw);
   max-height: 90vh;
   overflow-y: auto;
   padding: 22px 24px 18px;
@@ -180,14 +181,22 @@ body {
   color: #e0b44a;
 }
 
-.merchant-sell-row {
+.merchant-section:not([hidden]) {
+  margin-bottom: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(201, 162, 39, 0.35);
+}
+
+.merchant-sell-row,
+.merchant-trade-row {
   margin-bottom: 12px;
   padding: 10px 8px;
   background: rgba(18, 12, 8, 0.35);
   border: 1px solid rgba(224, 180, 74, 0.18);
 }
 
-.merchant-sell-row .merchant-actions {
+.merchant-sell-row .merchant-actions,
+.merchant-trade-row .merchant-actions {
   margin: 8px 0 0;
 }
 
@@ -198,22 +207,33 @@ body {
   color: #f0d78c;
 }
 
-.merchant-sell-row[data-item-id="cheese"] .merchant-item-name {
+.merchant-price {
+  margin: 4px 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.merchant-price-buy {
+  color: #e0b44a;
+}
+
+.merchant-price-sell {
+  color: #c5d48a;
+}
+
+.merchant-sell-row[data-item-id="cheese"] .merchant-item-name,
+.merchant-trade-row[data-item-id="supplies"] .merchant-item-name {
   color: #f2c43c;
 }
 
-.merchant-sell-row[data-item-id="scrap"] .merchant-item-name {
+.merchant-sell-row[data-item-id="scrap"] .merchant-item-name,
+.merchant-trade-row[data-item-id="iron_ore"] .merchant-item-name {
   color: #c5ccd4;
 }
 
 .merchant-card p {
   margin: 6px 0;
-}
-
-.merchant-divider {
-  height: 1px;
-  margin: 16px 0;
-  background: linear-gradient(90deg, transparent, #c9a227, transparent);
 }
 
 .merchant-weapon-row {

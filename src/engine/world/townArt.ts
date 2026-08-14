@@ -8,7 +8,7 @@ import {
   TOWN_WIDTH,
   TOWN_EXIT,
 } from "../../game/world/town";
-import { CHEESE_MERCHANT } from "../../data/merchants";
+import { TOWN_MERCHANT } from "../../data/merchants";
 import { DEPTH } from "../art/depth";
 import {
   addBarrel,
@@ -37,7 +37,7 @@ export function drawTownWorld(scene: Phaser.Scene): void {
     [
       TOWN_SPAWN,
       { x: 420, y: 400 },
-      { x: CHEESE_MERCHANT.x + 40, y: CHEESE_MERCHANT.y + 40 },
+      { x: TOWN_MERCHANT.x + 40, y: TOWN_MERCHANT.y + 40 },
     ],
     22,
     THEME.townPath,

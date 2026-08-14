@@ -8,6 +8,7 @@ export const TEX = {
   dangerFloor: "tex-danger-floor-v2",
   stoneWall: "tex-stone-wall-v2",
   earthWall: "tex-earth-wall-v2",
+  woodWall: "tex-wood-wall-v1",
 } as const;
 
 const TILE = 128;
@@ -105,6 +106,21 @@ function paintDanger(ctx: CanvasRenderingContext2D): void {
   ctx.globalAlpha = 1;
 }
 
+function paintWood(ctx: CanvasRenderingContext2D): void {
+  const rng = createRng(71);
+  ctx.fillStyle = rgb(THEME.townWoodDark);
+  ctx.fillRect(0, 0, TILE, TILE);
+  const plank = 18;
+  for (let x = 0; x < TILE + plank; x += plank) {
+    ctx.fillStyle = rgb(THEME.townWood, rng() * 18 - 10);
+    ctx.fillRect(x + 1, 0, plank - 3, TILE);
+    ctx.fillStyle = rgb(THEME.gold, -40);
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(x + 6, 10 + rng() * 40, 2, 8);
+    ctx.globalAlpha = 1;
+  }
+}
+
 function paintBrick(
   ctx: CanvasRenderingContext2D,
   base: number,
@@ -135,6 +151,7 @@ export function ensureWorldTextures(scene: Phaser.Scene): void {
   ensureCanvasTexture(scene, TEX.earthWall, (ctx) =>
     paintBrick(ctx, THEME.wallWild, THEME.wallWildDark),
   );
+  ensureCanvasTexture(scene, TEX.woodWall, paintWood);
 }
 
 export function addTiledFloor(

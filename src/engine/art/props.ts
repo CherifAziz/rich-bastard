@@ -205,6 +205,30 @@ export function addPot(scene: Phaser.Scene, x: number, y: number): void {
   scene.add.ellipse(x, y - 6, 10, 8, THEME.townLeaf).setDepth(DEPTH.prop);
 }
 
+export function addPalisadePost(scene: Phaser.Scene, x: number, y: number): void {
+  scene.add.ellipse(x, y + 12, 12, 6, THEME.shadow, 0.2).setDepth(DEPTH.shadow);
+  scene.add.rectangle(x, y, 8, 28, THEME.townWoodDark).setDepth(DEPTH.wall);
+  scene.add.rectangle(x, y - 12, 10, 8, THEME.townWood).setDepth(DEPTH.wall);
+}
+
+export function addPalisadeLine(
+  scene: Phaser.Scene,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  spacing = 22,
+): void {
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const steps = Math.max(1, Math.round(dist / spacing));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    addPalisadePost(
+      scene,
+      from.x + (to.x - from.x) * t,
+      from.y + (to.y - from.y) * t,
+    );
+  }
+}
+
 export function addWoodPile(scene: Phaser.Scene, x: number, y: number): void {
   scene.add.ellipse(x, y + 8, 28, 10, THEME.shadow, 0.18).setDepth(DEPTH.shadow);
   scene.add.rectangle(x, y + 2, 26, 8, THEME.wildTrunk).setDepth(DEPTH.prop);

@@ -90,12 +90,16 @@ export class GameHud {
     this.hpText.textContent = `HP ${player.hp}/${player.maxHp}`;
     this.gold.textContent = `$${player.gold}`;
     this.weapon.textContent = `${weapon.name} · ${weapon.damage} DMG`;
-    this.inventory.textContent = Object.values(ITEM_BY_ID)
+    const carried = Object.values(ITEM_BY_ID)
+      .filter((item) => {
+        const quantity = getItemQuantity(player.inventory, item.id);
+        return item.kind === "loot" || quantity > 0;
+      })
       .map(
         (item) =>
           `${item.name} ×${getItemQuantity(player.inventory, item.id)}`,
-      )
-      .join("  ");
+      );
+    this.inventory.textContent = carried.join("  ");
 
     this.dashFill.classList.toggle("is-dash", isDashing(player, time));
     if (isDashing(player, time)) {

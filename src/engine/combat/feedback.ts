@@ -177,6 +177,25 @@ export function showPurchaseFeedback(
   );
 }
 
+export function showTradePurchaseFeedback(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  name: string,
+  quantity: number,
+  goldSpent: number,
+): void {
+  floatText(
+    scene,
+    x,
+    y - 36,
+    `BOUGHT ${name} ×${quantity}\n-$${goldSpent}`,
+    THEME_HEX.gold,
+    34,
+    900,
+  );
+}
+
 export function showMiss(
   scene: Phaser.Scene,
   x: number,

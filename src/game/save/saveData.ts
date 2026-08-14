@@ -1,9 +1,10 @@
+import { isHubId, type HubId } from "../../data/hubs";
 import { ITEM_BY_ID } from "../../data/items";
 import { RUSTY_KNIFE, WEAPON_BY_ID } from "../../data/weapons";
 import type { InventoryItem } from "../inventory/inventory";
 import type { PlayerState } from "../player/player";
 
-export const SAVE_VERSION = 2 as const;
+export const SAVE_VERSION = 3 as const;
 export const SAVE_KEY = "rich-bastard-save-v1";
 
 export type SavedInventoryItem = {
@@ -30,11 +31,25 @@ export type SaveDataV2 = {
   };
 };
 
+export type SaveDataV3 = {
+  version: 3;
+  player: {
+    gold: number;
+    inventory: SavedInventoryItem[];
+    ownedWeaponIds: string[];
+    equippedWeaponId: string;
+    lastSafeHubId: HubId;
+  };
+};
+
 export type ParseSaveResult =
-  | { ok: true; data: SaveDataV2 }
+  | { ok: true; data: SaveDataV3 }
   | { ok: false; reason: string };
 
-export function saveDataFromPlayer(player: PlayerState): SaveDataV2 {
+export function saveDataFromProgress(
+  player: PlayerState,
+  lastSafeHubId: HubId,
+): SaveDataV3 {
   return {
     version: SAVE_VERSION,
     player: {
@@ -45,13 +60,14 @@ export function saveDataFromPlayer(player: PlayerState): SaveDataV2 {
       })),
       ownedWeaponIds: [...player.ownedWeaponIds],
       equippedWeaponId: player.equippedWeaponId ?? RUSTY_KNIFE.id,
+      lastSafeHubId,
     },
   };
 }
 
 export function applyProgression(
   player: PlayerState,
-  progression: SaveDataV2["player"],
+  progression: Omit<SaveDataV3["player"], "lastSafeHubId">,
 ): void {
   player.gold = progression.gold;
   player.inventory = cloneInventory(progression.inventory);
@@ -67,7 +83,7 @@ export function migrateV1ToV2(save: SaveDataV1): SaveDataV2 {
   }
 
   return {
-    version: SAVE_VERSION,
+    version: 2,
     player: {
       gold: save.player.gold,
       inventory: save.player.inventory,
@@ -75,6 +91,23 @@ export function migrateV1ToV2(save: SaveDataV1): SaveDataV2 {
       equippedWeaponId,
     },
   };
+}
+
+export function migrateV2ToV3(save: SaveDataV2): SaveDataV3 {
+  return {
+    version: 3,
+    player: {
+      gold: save.player.gold,
+      inventory: save.player.inventory,
+      ownedWeaponIds: save.player.ownedWeaponIds,
+      equippedWeaponId: save.player.equippedWeaponId,
+      lastSafeHubId: "town",
+    },
+  };
+}
+
+export function migrateV1ToV3(save: SaveDataV1): SaveDataV3 {
+  return migrateV2ToV3(migrateV1ToV2(save));
 }
 
 export function parseSaveData(value: unknown): ParseSaveResult {
@@ -88,7 +121,15 @@ export function parseSaveData(value: unknown): ParseSaveResult {
     if (!parsed.ok) {
       return parsed;
     }
-    return { ok: true, data: migrateV1ToV2(parsed.data) };
+    return { ok: true, data: migrateV1ToV3(parsed.data) };
+  }
+
+  if (root.version === 2) {
+    const parsed = parseV2(root);
+    if (!parsed.ok) {
+      return parsed;
+    }
+    return { ok: true, data: migrateV2ToV3(parsed.data) };
   }
 
   if (root.version !== SAVE_VERSION) {
@@ -98,7 +139,7 @@ export function parseSaveData(value: unknown): ParseSaveResult {
     };
   }
 
-  return parseV2(root);
+  return parseV3(root);
 }
 
 function parseSharedPlayer(
@@ -158,7 +199,9 @@ function parseV1(
   };
 }
 
-function parseV2(root: Record<string, unknown>): ParseSaveResult {
+function parseV2(
+  root: Record<string, unknown>,
+): { ok: true; data: SaveDataV2 } | { ok: false; reason: string } {
   const shared = parseSharedPlayer(root);
   if (!shared.ok) {
     return shared;
@@ -180,12 +223,35 @@ function parseV2(root: Record<string, unknown>): ParseSaveResult {
   return {
     ok: true,
     data: {
-      version: SAVE_VERSION,
+      version: 2,
       player: {
         gold: shared.player.gold as number,
         inventory: inventory.items,
         ownedWeaponIds: owned.ids,
         equippedWeaponId: shared.player.equippedWeaponId as string,
+      },
+    },
+  };
+}
+
+function parseV3(root: Record<string, unknown>): ParseSaveResult {
+  const parsed = parseV2(root);
+  if (!parsed.ok) {
+    return parsed;
+  }
+
+  const player = (root.player as Record<string, unknown>) ?? {};
+  if (!isHubId(player.lastSafeHubId)) {
+    return { ok: false, reason: "hub invalide" };
+  }
+
+  return {
+    ok: true,
+    data: {
+      version: 3,
+      player: {
+        ...parsed.data.player,
+        lastSafeHubId: player.lastSafeHubId,
       },
     },
   };

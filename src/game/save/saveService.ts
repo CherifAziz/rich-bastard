@@ -1,12 +1,12 @@
-import type { PlayerState } from "../player/player";
+import type { GameSession } from "../state/gameSession";
 import {
   SAVE_KEY,
   parseSaveData,
-  saveDataFromPlayer,
-  type SaveDataV2,
+  saveDataFromProgress,
+  type SaveDataV3,
 } from "./saveData";
 
-export function loadSave(): SaveDataV2 | null {
+export function loadSave(): SaveDataV3 | null {
   const raw = readRawSave();
   if (raw === null) {
     return null;
@@ -29,7 +29,7 @@ export function loadSave(): SaveDataV2 | null {
   return result.data;
 }
 
-export function saveGame(data: SaveDataV2): void {
+export function saveGame(data: SaveDataV3): void {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch {
@@ -37,8 +37,8 @@ export function saveGame(data: SaveDataV2): void {
   }
 }
 
-export function persistPlayerProgress(player: PlayerState): void {
-  saveGame(saveDataFromPlayer(player));
+export function persistSession(session: GameSession): void {
+  saveGame(saveDataFromProgress(session.player, session.lastSafeHubId));
 }
 
 export function deleteSave(): void {

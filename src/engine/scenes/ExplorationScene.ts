@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { ENEMY_BY_ID } from "../../data/enemies";
+import { sceneKeyForHub } from "../../data/hubs";
 import { THEME_HEX } from "../../data/theme";
 import { tickEnemyMelee } from "../../game/combat/enemyMelee";
 import { tryMeleeAttack } from "../../game/combat/melee";
@@ -7,7 +8,7 @@ import { applyDeathGoldPenalty } from "../../game/economy/death";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem } from "../../game/inventory/inventory";
 import { preparePlayerForScene } from "../../game/player/status";
-import { persistPlayerProgress } from "../../game/save/saveService";
+import { persistSession } from "../../game/save/saveService";
 import {
   createGroundLoot,
   grantKillReward,
@@ -15,13 +16,14 @@ import {
 } from "../../game/rewards/rewards";
 import { isInRange } from "../../game/world/geometry";
 import {
+  EXPLORATION_EAST_EXIT,
   EXPLORATION_ENEMIES,
-  EXPLORATION_ENTRY,
-  EXPLORATION_EXIT,
   EXPLORATION_HEIGHT,
   EXPLORATION_OBSTACLES,
   EXPLORATION_WALLS,
+  EXPLORATION_WEST_EXIT,
   EXPLORATION_WIDTH,
+  explorationSpawnForHub,
 } from "../../game/world/exploration";
 import {
   showDamageNumber,
@@ -54,7 +56,8 @@ export class ExplorationScene extends Phaser.Scene {
   private player!: PlayerAvatar;
   private enemies: EnemyAvatar[] = [];
   private lootDrops: LootDrop[] = [];
-  private exitMarker!: InteractMarker;
+  private westExit!: InteractMarker;
+  private eastExit!: InteractMarker;
   private moveKeys!: MovementKeys;
   private interactKey!: Phaser.Input.Keyboard.Key;
   private dashKey!: Phaser.Input.Keyboard.Key;
@@ -73,11 +76,8 @@ export class ExplorationScene extends Phaser.Scene {
     this.enemies = [];
 
     const session = getGameSession(this);
-    preparePlayerForScene(
-      session.player,
-      EXPLORATION_ENTRY.x,
-      EXPLORATION_ENTRY.y,
-    );
+    const spawn = explorationSpawnForHub(session.lastSafeHubId);
+    preparePlayerForScene(session.player, spawn.x, spawn.y);
 
     this.physics.world.setBounds(0, 0, EXPLORATION_WIDTH, EXPLORATION_HEIGHT);
     this.cameras.main.setBounds(0, 0, EXPLORATION_WIDTH, EXPLORATION_HEIGHT);
@@ -90,14 +90,22 @@ export class ExplorationScene extends Phaser.Scene {
     );
 
     this.player = new PlayerAvatar(this, session.player);
-    this.player.placeAt(EXPLORATION_ENTRY.x, EXPLORATION_ENTRY.y);
+    this.player.placeAt(spawn.x, spawn.y);
 
-    this.exitMarker = new InteractMarker(
+    this.westExit = new InteractMarker(
       this,
-      EXPLORATION_EXIT.x,
-      EXPLORATION_EXIT.y,
-      "RETOUR VILLE",
-      "E — RETOURNER EN VILLE",
+      EXPLORATION_WEST_EXIT.x,
+      EXPLORATION_WEST_EXIT.y,
+      "BOURG",
+      "E — ENTRER À BOURG",
+      false,
+    );
+    this.eastExit = new InteractMarker(
+      this,
+      EXPLORATION_EAST_EXIT.x,
+      EXPLORATION_EAST_EXIT.y,
+      "AVANT-POSTE",
+      "E — ENTRER À L'AVANT-POSTE",
       false,
     );
 
@@ -123,30 +131,40 @@ export class ExplorationScene extends Phaser.Scene {
 
     this.hud = new GameHud(
       this,
-      "ZQSD  ·  clic  ·  ESPACE dash  ·  E retour ville",
+      "ZQSD  ·  clic  ·  ESPACE dash  ·  E entrer",
     );
     this.game.canvas.setAttribute("tabindex", "0");
     this.game.canvas.focus();
   }
 
   update(time: number): void {
-    const nearExit = isInRange(
+    const nearWest = isInRange(
       this.player.state.x,
       this.player.state.y,
-      EXPLORATION_EXIT.x,
-      EXPLORATION_EXIT.y,
-      EXPLORATION_EXIT.talkRange,
+      EXPLORATION_WEST_EXIT.x,
+      EXPLORATION_WEST_EXIT.y,
+      EXPLORATION_WEST_EXIT.talkRange,
+    );
+    const nearEast = isInRange(
+      this.player.state.x,
+      this.player.state.y,
+      EXPLORATION_EAST_EXIT.x,
+      EXPLORATION_EAST_EXIT.y,
+      EXPLORATION_EAST_EXIT.talkRange,
     );
 
-    this.exitMarker.setPromptVisible(nearExit && !this.dying);
+    this.westExit.setPromptVisible(nearWest && !this.dying);
+    this.eastExit.setPromptVisible(nearEast && !this.dying);
 
-    if (
-      !this.dying &&
-      nearExit &&
-      Phaser.Input.Keyboard.JustDown(this.interactKey)
-    ) {
-      this.scene.start("town");
-      return;
+    if (!this.dying && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      if (nearWest) {
+        this.scene.start("town");
+        return;
+      }
+      if (nearEast) {
+        this.scene.start("outpost");
+        return;
+      }
     }
 
     this.wasDashing = tickPlayerMotion(
@@ -225,7 +243,7 @@ export class ExplorationScene extends Phaser.Scene {
       if (hit.killed) {
         const reward = grantKillReward(this.player.state, hit.enemy);
         if (reward) {
-          persistPlayerProgress(this.player.state);
+          persistSession(getGameSession(this));
           showKillReward(
             this,
             avatar.sprite.x,
@@ -310,8 +328,8 @@ export class ExplorationScene extends Phaser.Scene {
       const session = getGameSession(this);
       const penalty = applyDeathGoldPenalty(this.player.state);
       session.lastGoldLost = penalty.goldLost;
-      persistPlayerProgress(this.player.state);
-      this.scene.start("town");
+      persistSession(session);
+      this.scene.start(sceneKeyForHub(session.lastSafeHubId));
     });
   }
 
@@ -376,7 +394,7 @@ export class ExplorationScene extends Phaser.Scene {
     }
 
     addItem(this.player.state.inventory, drop.loot.itemId, drop.loot.quantity);
-    persistPlayerProgress(this.player.state);
+    persistSession(getGameSession(this));
     showPickupFeedback(
       this,
       this.player.state.x,
