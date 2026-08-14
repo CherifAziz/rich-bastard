@@ -34,6 +34,7 @@ import { MerchantPanel } from "../ui/MerchantPanel";
 import { createActionKeys, createBlockers } from "../world/drawZone";
 import { InteractMarker } from "../world/InteractMarker";
 import { drawTownWorld } from "../world/townArt";
+import { followPlayer } from "../camera";
 
 export class TownScene extends Phaser.Scene {
   private player!: PlayerAvatar;
@@ -92,7 +93,7 @@ export class TownScene extends Phaser.Scene {
     });
 
     this.physics.add.collider(this.player.sprite, blockers);
-    this.cameras.main.startFollow(this.player.sprite, true, 0.16, 0.16);
+    followPlayer(this, this.player.sprite);
 
     this.moveKeys = createMovementKeys(this);
     const actions = createActionKeys(this);
@@ -102,7 +103,6 @@ export class TownScene extends Phaser.Scene {
     this.hud = new GameHud(
       this,
       "ZQSD  ·  ESPACE dash  ·  E parler / partir",
-      false,
     );
     this.game.canvas.setAttribute("tabindex", "0");
     this.game.canvas.focus();

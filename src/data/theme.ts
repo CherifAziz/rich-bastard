@@ -59,10 +59,11 @@ export const THEME = {
   wildCanopy: 0x2f5c32,
   wildCanopyLight: 0x4a7a3e,
 
-  dangerGround: 0x5a3a30,
-  dangerGroundDark: 0x3e2822,
-  dangerAccent: 0xc45c4a,
-  dangerDead: 0x6a5a40,
+  dangerGround: 0x5a4a38,
+  dangerGroundDark: 0x3c3228,
+  dangerAccent: 0xa85a48,
+  dangerDead: 0x6a5c40,
+  dryGrass: 0x6b6a3c,
 
   wallTown: 0x5c564c,
   wallTownDark: 0x3f3b34,

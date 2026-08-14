@@ -5,6 +5,7 @@ import {
   velocityFromInput,
 } from "../../game/player/player";
 import { DEPTH } from "../art/depth";
+import { cardinalFrom } from "../art/facing";
 import { addShadow } from "../art/props";
 
 export class PlayerAvatar {
@@ -13,9 +14,14 @@ export class PlayerAvatar {
   readonly state: PlayerState;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly visual: Phaser.GameObjects.Container;
+  private readonly armL: Phaser.GameObjects.Ellipse;
+  private readonly armR: Phaser.GameObjects.Ellipse;
+  private readonly head: Phaser.GameObjects.Arc;
+  private readonly hair: Phaser.GameObjects.Ellipse;
   private readonly weaponHand: Phaser.GameObjects.Container;
   private readonly flash: Phaser.GameObjects.Ellipse;
   private lastWeaponId: string | null = null;
+  private restRotation = 0.45;
   private attackTween: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Phaser.Scene, state: PlayerState) {
@@ -39,36 +45,39 @@ export class PlayerAvatar {
     this.body.setSize(state.width, state.height);
     this.body.setMass(4);
 
-    this.shadow = addShadow(scene, state.x, state.y + 10, 22, 11);
+    this.shadow = addShadow(scene, state.x, state.y + 11, 24, 12);
     this.visual = scene.add.container(state.x, state.y);
     this.visual.setDepth(DEPTH.character);
 
-    const bootL = scene.add.ellipse(-5, 11, 7, 6, THEME.playerBoot);
-    const bootR = scene.add.ellipse(5, 11, 7, 6, THEME.playerBoot);
-    const body = scene.add.ellipse(0, 3, 18, 20, THEME.playerTunic);
-    const shirt = scene.add.ellipse(0, -2, 10, 8, THEME.playerShirt);
-    const armL = scene.add.ellipse(-10, 2, 6, 11, THEME.playerSkin);
-    const armR = scene.add.ellipse(10, 2, 6, 11, THEME.playerSkin);
-    const head = scene.add.circle(0, -11, 8, THEME.playerSkin);
-    const hair = scene.add.ellipse(0, -15, 14, 8, THEME.playerHair);
-    this.flash = scene.add.ellipse(0, 0, 26, 30, 0xfff4e0, 0);
+    const outline = scene.add.ellipse(0, 3, 20, 24, THEME.playerBoot);
+    const bootL = scene.add.ellipse(-5, 13, 7, 7, THEME.playerBoot);
+    const bootR = scene.add.ellipse(5, 13, 7, 7, THEME.playerBoot);
+    const body = scene.add.ellipse(0, 3, 17, 20, THEME.playerTunic);
+    const shirt = scene.add.ellipse(0, -1, 11, 9, THEME.playerShirt);
+    this.armL = scene.add.ellipse(-10, 3, 6, 12, THEME.playerSkin);
+    this.armR = scene.add.ellipse(10, 3, 6, 12, THEME.playerSkin);
+    this.head = scene.add.circle(0, -12, 9, THEME.playerSkin);
+    this.hair = scene.add.ellipse(0, -17, 16, 9, THEME.playerHair);
+    this.flash = scene.add.ellipse(0, 0, 28, 34, 0xfff4e0, 0);
 
-    this.weaponHand = scene.add.container(12, 1);
-    this.weaponHand.setRotation(0.4);
+    this.weaponHand = scene.add.container(13, 2);
+    this.weaponHand.setRotation(this.restRotation);
 
     this.visual.add([
+      outline,
       bootL,
       bootR,
-      armL,
+      this.armL,
       body,
       shirt,
-      armR,
-      head,
-      hair,
+      this.armR,
+      this.head,
+      this.hair,
       this.weaponHand,
       this.flash,
     ]);
     this.redrawWeapon();
+    this.applyFacing();
   }
 
   applyMoveInput(dirX: number, dirY: number): void {
@@ -86,15 +95,16 @@ export class PlayerAvatar {
   }
 
   flashAttack(scene: Phaser.Scene): void {
+    this.applyFacing();
     this.attackTween?.stop();
-    this.weaponHand.setRotation(0.4);
+    this.weaponHand.setRotation(this.restRotation);
     this.attackTween = scene.tweens.add({
       targets: this.weaponHand,
-      rotation: -1.15,
+      rotation: this.restRotation - 1.25,
       duration: 55,
       yoyo: true,
       onComplete: () => {
-        this.weaponHand.setRotation(0.4);
+        this.weaponHand.setRotation(this.restRotation);
         this.attackTween = null;
       },
     });
@@ -108,7 +118,7 @@ export class PlayerAvatar {
         this.sprite.x - this.state.dashDirX * i * 14,
         this.sprite.y - this.state.dashDirY * i * 14,
         18,
-        22,
+        24,
         THEME.playerTunic,
         0.32 / i,
       );
@@ -129,7 +139,7 @@ export class PlayerAvatar {
   }
 
   flashHit(scene: Phaser.Scene): void {
-    this.flash.setAlpha(0.7);
+    this.flash.setAlpha(0.85);
     scene.time.delayedCall(90, () => {
       this.flash.setAlpha(0);
     });
@@ -156,14 +166,47 @@ export class PlayerAvatar {
       this.redrawWeapon();
     }
 
+    this.applyFacing();
     const bob = moving
-      ? Math.sin(time / 80) * 1.6
-      : Math.sin(time / 320) * 0.7;
-    this.shadow.setPosition(this.sprite.x, this.sprite.y + 10);
+      ? Math.sin(time / 80) * 1.5
+      : Math.sin(time / 320) * 0.6;
+    const arm = moving ? Math.sin(time / 90) * 2.2 : 0;
+    this.armL.y = 3 + arm;
+    this.armR.y = 3 - arm;
+    this.shadow.setPosition(this.sprite.x, this.sprite.y + 11);
     this.visual.setPosition(this.sprite.x, this.sprite.y + bob);
-    this.visual.setRotation(
-      Math.atan2(this.state.facingY, this.state.facingX) + Math.PI / 2,
-    );
+  }
+
+  private applyFacing(): void {
+    const dir = cardinalFrom(this.state.facingX, this.state.facingY);
+    const flip = dir === "left" ? -1 : 1;
+    this.visual.setScale(flip, 1);
+
+    if (dir === "up") {
+      this.head.setPosition(0, -14);
+      this.hair.setPosition(0, -19);
+      this.weaponHand.setPosition(9, -4);
+      this.restRotation = -0.35;
+      this.visual.sendToBack(this.weaponHand);
+    } else if (dir === "down") {
+      this.head.setPosition(1, -11);
+      this.hair.setPosition(1, -16);
+      this.weaponHand.setPosition(12, 7);
+      this.restRotation = 0.55;
+      this.visual.bringToTop(this.weaponHand);
+      this.visual.bringToTop(this.flash);
+    } else {
+      this.head.setPosition(2, -12);
+      this.hair.setPosition(2, -17);
+      this.weaponHand.setPosition(14, 2);
+      this.restRotation = 0.42;
+      this.visual.bringToTop(this.weaponHand);
+      this.visual.bringToTop(this.flash);
+    }
+
+    if (!this.attackTween) {
+      this.weaponHand.setRotation(this.restRotation);
+    }
   }
 
   private redrawWeapon(): void {
@@ -173,16 +216,16 @@ export class PlayerAvatar {
 
     if (this.state.equippedWeaponId === "rusty_bat") {
       const bat = scene.add.container(0, 0);
-      bat.add(scene.add.rectangle(0, 8, 5, 18, THEME.playerBat));
-      bat.add(scene.add.ellipse(0, -6, 9, 16, THEME.playerBatDark));
+      bat.add(scene.add.rectangle(0, 10, 6, 22, THEME.playerBat));
+      bat.add(scene.add.ellipse(0, -8, 11, 18, THEME.playerBatDark));
       this.weaponHand.add(bat);
       return;
     }
 
     const knife = scene.add.container(0, 0);
-    knife.add(scene.add.rectangle(0, 4, 3, 8, THEME.playerBatDark));
+    knife.add(scene.add.rectangle(0, 5, 3.5, 10, THEME.playerBatDark));
     knife.add(
-      scene.add.triangle(0, -6, 0, -10, -3.5, 4, 3.5, 4, THEME.playerKnife),
+      scene.add.triangle(0, -8, 0, -13, -4, 5, 4, 5, THEME.playerKnife),
     );
     this.weaponHand.add(knife);
   }

@@ -25,19 +25,19 @@ export function addPrompt(
   const label = scene.add
     .text(x, y, text, {
       fontFamily: FONT,
-      fontSize: "15px",
+      fontSize: "16px",
       fontStyle: "bold",
       color: THEME_HEX.paper,
       stroke: THEME_HEX.stroke,
-      strokeThickness: 3,
+      strokeThickness: 4,
     })
     .setOrigin(0.5)
     .setDepth(DEPTH.prompt)
     .setVisible(false);
 
   const bg = scene.add
-    .rectangle(x, y, Math.max(160, text.length * 9 + 20), 24, THEME.ink, 0.62)
-    .setStrokeStyle(1, THEME.gold, 0.55)
+    .rectangle(x, y, Math.max(176, text.length * 9.5 + 24), 26, THEME.ink, 0.72)
+    .setStrokeStyle(1, THEME.gold, 0.7)
     .setDepth(DEPTH.prompt - 1)
     .setVisible(false);
 
@@ -92,11 +92,11 @@ export function addRock(
   const color = scorched ? THEME.dangerGroundDark : THEME.wildRock;
   const dark = scorched ? THEME.ink : THEME.wildRockDark;
   scene.add
-    .ellipse(x, y + height * 0.28, width * 0.9, height * 0.4, THEME.shadow, 0.25)
+    .ellipse(x, y + height * 0.22, width * 0.92, height * 0.42, THEME.shadow, 0.25)
     .setDepth(DEPTH.shadow);
-  scene.add.ellipse(x, y, width, height * 0.85, color).setDepth(DEPTH.prop);
+  scene.add.ellipse(x, y, width, height, color).setDepth(DEPTH.prop);
   scene.add
-    .ellipse(x - width * 0.12, y - height * 0.12, width * 0.4, height * 0.28, dark)
+    .ellipse(x - width * 0.14, y - height * 0.14, width * 0.42, height * 0.32, dark)
     .setDepth(DEPTH.prop);
 }
 
@@ -108,14 +108,14 @@ export function addLog(
   height: number,
 ): void {
   scene.add
-    .ellipse(x, y + 6, width * 0.9, height * 0.7, THEME.shadow, 0.22)
+    .ellipse(x, y + 4, width * 0.92, height * 0.55, THEME.shadow, 0.22)
     .setDepth(DEPTH.shadow);
-  scene.add.ellipse(x, y, width, height * 0.7, THEME.wildTrunk).setDepth(DEPTH.prop);
+  scene.add.ellipse(x, y, width, height, THEME.wildTrunk).setDepth(DEPTH.prop);
   scene.add
-    .ellipse(x - width * 0.42, y, height * 0.55, height * 0.7, THEME.playerBatDark)
+    .ellipse(x - width * 0.42, y, height * 0.7, height * 0.92, THEME.playerBatDark)
     .setDepth(DEPTH.prop);
   scene.add
-    .ellipse(x + width * 0.42, y, height * 0.55, height * 0.7, THEME.playerBatDark)
+    .ellipse(x + width * 0.42, y, height * 0.7, height * 0.92, THEME.playerBatDark)
     .setDepth(DEPTH.prop);
 }
 
@@ -126,18 +126,16 @@ export function addRuin(
   width: number,
   height: number,
 ): void {
+  scene.add.rectangle(x, y, width, height, THEME.wildRockDark).setDepth(DEPTH.prop);
   scene.add
-    .rectangle(x, y, width, height, THEME.dangerGroundDark)
-    .setDepth(DEPTH.prop);
-  scene.add
-    .rectangle(x - width * 0.2, y - height * 0.15, width * 0.35, height * 0.4, THEME.wildRock)
+    .rectangle(x - width * 0.18, y - height * 0.12, width * 0.42, height * 0.45, THEME.wildRock)
     .setDepth(DEPTH.prop);
   scene.add
     .rectangle(
-      x + width * 0.22,
-      y + height * 0.1,
-      width * 0.28,
-      height * 0.35,
+      x + width * 0.2,
+      y + height * 0.08,
+      width * 0.36,
+      height * 0.4,
       THEME.wallTown,
     )
     .setDepth(DEPTH.prop);
@@ -171,11 +169,12 @@ export function addCart(
   height: number,
 ): void {
   scene.add
-    .ellipse(x, y + 8, width * 0.9, height * 0.5, THEME.shadow, 0.2)
+    .ellipse(x, y + 6, width * 0.9, height * 0.5, THEME.shadow, 0.2)
     .setDepth(DEPTH.shadow);
-  scene.add.rectangle(x, y, width * 0.9, height * 0.7, THEME.townWood).setDepth(DEPTH.prop);
-  scene.add.circle(x - width * 0.28, y + height * 0.2, 7, THEME.ink).setDepth(DEPTH.prop);
-  scene.add.circle(x + width * 0.28, y + height * 0.2, 7, THEME.ink).setDepth(DEPTH.prop);
+  scene.add.rectangle(x, y, width, height, THEME.townWoodDark).setDepth(DEPTH.prop);
+  scene.add.rectangle(x, y - 2, width * 0.86, height * 0.62, THEME.townWood).setDepth(DEPTH.prop);
+  scene.add.circle(x - width * 0.28, y + height * 0.22, 7, THEME.ink).setDepth(DEPTH.prop);
+  scene.add.circle(x + width * 0.28, y + height * 0.22, 7, THEME.ink).setDepth(DEPTH.prop);
 }
 
 export function addCrateRow(
@@ -183,12 +182,33 @@ export function addCrateRow(
   x: number,
   y: number,
   width: number,
+  height = 40,
 ): void {
+  scene.add.rectangle(x, y, width, height, THEME.townWoodDark).setDepth(DEPTH.prop);
   const count = Math.max(2, Math.round(width / 36));
   const start = x - width / 2 + 18;
   for (let i = 0; i < count; i++) {
-    addCrate(scene, start + i * 36, y + (i % 2) * 4);
+    addCrate(scene, start + i * 36, y + (i % 2) * 3);
   }
+}
+
+export function addBench(scene: Phaser.Scene, x: number, y: number): void {
+  scene.add.ellipse(x, y + 8, 36, 10, THEME.shadow, 0.18).setDepth(DEPTH.shadow);
+  scene.add.rectangle(x, y, 34, 8, THEME.townWood).setDepth(DEPTH.prop);
+  scene.add.rectangle(x - 14, y + 6, 4, 10, THEME.townWoodDark).setDepth(DEPTH.prop);
+  scene.add.rectangle(x + 14, y + 6, 4, 10, THEME.townWoodDark).setDepth(DEPTH.prop);
+}
+
+export function addPot(scene: Phaser.Scene, x: number, y: number): void {
+  scene.add.ellipse(x, y + 8, 12, 6, THEME.shadow, 0.18).setDepth(DEPTH.shadow);
+  scene.add.ellipse(x, y + 2, 12, 10, THEME.townRoof).setDepth(DEPTH.prop);
+  scene.add.ellipse(x, y - 6, 10, 8, THEME.townLeaf).setDepth(DEPTH.prop);
+}
+
+export function addWoodPile(scene: Phaser.Scene, x: number, y: number): void {
+  scene.add.ellipse(x, y + 8, 28, 10, THEME.shadow, 0.18).setDepth(DEPTH.shadow);
+  scene.add.rectangle(x, y + 2, 26, 8, THEME.wildTrunk).setDepth(DEPTH.prop);
+  scene.add.rectangle(x + 2, y - 4, 22, 7, THEME.playerBat).setDepth(DEPTH.prop);
 }
 
 export function addSignPost(
@@ -316,7 +336,7 @@ export function dressObstacle(
 
   if (kind === "town") {
     if (rect.width > 120) {
-      addCrateRow(scene, x, y, rect.width);
+      addCrateRow(scene, x, y, rect.width, rect.height);
       return;
     }
     if (Math.abs(rect.width - rect.height) < 8) {
@@ -348,18 +368,32 @@ export function addPath(
   radius: number,
   color: number,
 ): void {
+  const rng = createRng(Math.round(points[0]?.x ?? 1) * 13 + Math.round(points[0]?.y ?? 1));
   const g = scene.add.graphics();
   g.setDepth(DEPTH.path);
-  g.fillStyle(color, 0.92);
+  g.fillStyle(color, 0.9);
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
     const b = points[i + 1];
     const dist = Math.hypot(b.x - a.x, b.y - a.y);
-    const steps = Math.max(1, Math.ceil(dist / 10));
+    const steps = Math.max(1, Math.ceil(dist / 8));
+    const nx = dist === 0 ? 0 : -(b.y - a.y) / dist;
+    const ny = dist === 0 ? 0 : (b.x - a.x) / dist;
     for (let s = 0; s <= steps; s++) {
       const t = s / steps;
-      g.fillCircle(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, radius);
+      const wobble = (rng() - 0.5) * radius * 0.35;
+      const r = radius * (0.72 + rng() * 0.42);
+      g.fillCircle(
+        a.x + (b.x - a.x) * t + nx * wobble,
+        a.y + (b.y - a.y) * t + ny * wobble,
+        r,
+      );
     }
+  }
+  g.fillStyle(THEME.wildRock, 0.22);
+  for (let i = 0; i < 10; i++) {
+    const p = points[Math.floor(rng() * points.length)];
+    g.fillCircle(p.x + (rng() - 0.5) * radius * 1.6, p.y + (rng() - 0.5) * 18, 1.5 + rng() * 2);
   }
 }
 
@@ -373,10 +407,10 @@ export function addGroundSpecks(
   const rng = createRng(seed);
   const g = scene.add.graphics();
   g.setDepth(DEPTH.floorDetail);
-  g.fillStyle(color, 0.35);
+  g.fillStyle(color, 0.18);
   for (let i = 0; i < count; i++) {
     const x = bounds.margin + rng() * (bounds.width - bounds.margin * 2);
     const y = bounds.margin + rng() * (bounds.height - bounds.margin * 2);
-    g.fillCircle(x, y, 1 + rng() * 2.4);
+    g.fillCircle(x, y, 3 + rng() * 7);
   }
 }

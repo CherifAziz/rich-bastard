@@ -18,7 +18,7 @@ export class InteractMarker {
     this.x = x;
     this.y = y;
     addArchGate(scene, x, y, title, warm);
-    const prompt = addPrompt(scene, x, y - 82, promptText);
+    const prompt = addPrompt(scene, x, y - 102, promptText);
     this.prompt = prompt.label;
     this.promptBg = prompt.bg;
   }

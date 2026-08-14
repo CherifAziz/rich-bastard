@@ -12,13 +12,16 @@ import { CHEESE_MERCHANT } from "../../data/merchants";
 import { DEPTH } from "../art/depth";
 import {
   addBarrel,
+  addBench,
   addBuildingFacade,
   addBush,
   addCrate,
   addGroundSpecks,
   addPath,
+  addPot,
   addSignPost,
   addTree,
+  addWoodPile,
   dressObstacle,
   dressWalls,
 } from "../art/props";
@@ -36,7 +39,7 @@ export function drawTownWorld(scene: Phaser.Scene): void {
       { x: 420, y: 400 },
       { x: CHEESE_MERCHANT.x + 40, y: CHEESE_MERCHANT.y + 40 },
     ],
-    28,
+    22,
     THEME.townPath,
   );
   addPath(
@@ -47,7 +50,7 @@ export function drawTownWorld(scene: Phaser.Scene): void {
       TOWN_EXIT,
       { x: TOWN_WIDTH - 24, y: TOWN_EXIT.y },
     ],
-    26,
+    20,
     THEME.townPath,
   );
 
@@ -56,7 +59,7 @@ export function drawTownWorld(scene: Phaser.Scene): void {
     { width: TOWN_WIDTH, height: TOWN_HEIGHT, margin: 56 },
     9,
     THEME.townWoodDark,
-    90,
+    36,
   );
 
   addBuildingFacade(scene, 220, 52, 170, 56);
@@ -77,6 +80,18 @@ export function drawTownWorld(scene: Phaser.Scene): void {
   addBarrel(scene, 218, 228);
   addBarrel(scene, 1080, 340);
   addSignPost(scene, 430, 300, "BOURG");
+  addBench(scene, 500, 430);
+  addBench(scene, 860, 470);
+  addPot(scene, 150, 130);
+  addPot(scene, 300, 130);
+  addPot(scene, 620, 130);
+  addPot(scene, 880, 130);
+  addWoodPile(scene, 1000, 560);
+  addCrate(scene, 1040, 580);
+  addBarrel(scene, 120, 500);
+  addBarrel(scene, 138, 508);
+  addBush(scene, 640, 680);
+  addBush(scene, 1100, 240);
 
   for (const obstacle of TOWN_OBSTACLES) {
     dressObstacle(scene, obstacle, "town");

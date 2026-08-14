@@ -44,6 +44,7 @@ import { GameHud } from "../ui/GameHud";
 import { createActionKeys, createBlockers } from "../world/drawZone";
 import { InteractMarker } from "../world/InteractMarker";
 import { drawExplorationWorld } from "../world/explorationArt";
+import { followPlayer } from "../camera";
 
 const HIT_KNOCKBACK = 220;
 const PLAYER_HIT_KNOCKBACK = 280;
@@ -112,7 +113,7 @@ export class ExplorationScene extends Phaser.Scene {
     this.physics.add.collider(this.player.sprite, enemyGroup);
     this.physics.add.collider(enemyGroup, enemyGroup);
 
-    this.cameras.main.startFollow(this.player.sprite, true, 0.16, 0.16);
+    followPlayer(this, this.player.sprite);
 
     this.moveKeys = createMovementKeys(this);
     const actions = createActionKeys(this);
@@ -124,7 +125,6 @@ export class ExplorationScene extends Phaser.Scene {
     this.hud = new GameHud(
       this,
       "ZQSD  ·  clic  ·  ESPACE dash  ·  E retour ville",
-      true,
     );
     this.game.canvas.setAttribute("tabindex", "0");
     this.game.canvas.focus();

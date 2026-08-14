@@ -57,7 +57,7 @@ export class MerchantStand {
       .setOrigin(0.5)
       .setDepth(DEPTH.prop);
 
-    const prompt = addPrompt(scene, this.x, this.y - 82, "E — PARLER");
+    const prompt = addPrompt(scene, this.x, this.y - 102, "E — PARLER");
     this.prompt = prompt.label;
     this.promptBg = prompt.bg;
   }

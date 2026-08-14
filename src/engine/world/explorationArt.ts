@@ -21,6 +21,8 @@ import {
 } from "../art/props";
 import { TEX, addTiledFloor, ensureWorldTextures } from "../art/textures";
 
+const TRANSITION_WIDTH = 180;
+
 export function drawExplorationWorld(scene: Phaser.Scene): void {
   ensureWorldTextures(scene);
   addTiledFloor(
@@ -33,6 +35,16 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
 
   scene.add
     .tileSprite(
+      DANGER_ZONE.x - TRANSITION_WIDTH / 2,
+      EXPLORATION_HEIGHT / 2,
+      TRANSITION_WIDTH,
+      EXPLORATION_HEIGHT,
+      TEX.dryFloor,
+    )
+    .setDepth(DEPTH.floorDetail);
+
+  scene.add
+    .tileSprite(
       DANGER_ZONE.x + DANGER_ZONE.width / 2,
       DANGER_ZONE.y + DANGER_ZONE.height / 2,
       DANGER_ZONE.width,
@@ -41,11 +53,22 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
     )
     .setDepth(DEPTH.floorDetail);
 
+  scene.add
+    .tileSprite(
+      DANGER_ZONE.x + 50,
+      EXPLORATION_HEIGHT / 2,
+      100,
+      EXPLORATION_HEIGHT,
+      TEX.dryFloor,
+    )
+    .setAlpha(0.45)
+    .setDepth(DEPTH.floorDetail);
+
   const fade = scene.add.graphics();
   fade.setDepth(DEPTH.floorDetail);
   for (let i = 0; i < 10; i++) {
-    fade.fillStyle(THEME.dangerGround, 0.08 + i * 0.05);
-    fade.fillRect(DANGER_ZONE.x - 80 + i * 8, 0, 10, EXPLORATION_HEIGHT);
+    fade.fillStyle(THEME.dryGrass, 0.05 + i * 0.025);
+    fade.fillRect(DANGER_ZONE.x - 50 + i * 10, 0, 12, EXPLORATION_HEIGHT);
   }
 
   dressWalls(scene, EXPLORATION_WALLS, TEX.earthWall);
@@ -59,7 +82,7 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
       { x: 900, y: 420 },
       { x: DANGER_ZONE.x - 20, y: 480 },
     ],
-    22,
+    18,
     THEME.wildDirt,
   );
   addPath(
@@ -69,7 +92,7 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
       { x: 1580, y: 560 },
       { x: 1900, y: 900 },
     ],
-    20,
+    16,
     THEME.dangerGroundDark,
   );
 
@@ -78,7 +101,7 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
     { width: EXPLORATION_WIDTH, height: EXPLORATION_HEIGHT, margin: 64 },
     21,
     THEME.wildGrassDark,
-    160,
+    42,
   );
 
   const safeTrees = [
@@ -91,9 +114,11 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
     [480, 1100],
     [900, 980],
     [1180, 700],
+    [430, 430],
+    [1020, 860],
   ];
   for (const [x, y] of safeTrees) {
-    addTree(scene, x, y, { scale: 0.85 + ((x + y) % 5) * 0.06 });
+    addTree(scene, x, y, { scale: 0.8 + ((x + y) % 5) * 0.07 });
   }
 
   const deadTrees = [
@@ -104,17 +129,21 @@ export function drawExplorationWorld(scene: Phaser.Scene): void {
     [1880, 1200],
     [2300, 900],
     [1400, 1100],
+    [2040, 300],
   ];
   for (const [x, y] of deadTrees) {
-    addTree(scene, x, y, { dead: true, scale: 0.8 });
+    addTree(scene, x, y, { dead: true, scale: 0.75 + (x % 4) * 0.05 });
   }
 
   addBush(scene, 400, 360);
   addBush(scene, 700, 700);
   addBush(scene, 1000, 500);
+  addBush(scene, 250, 420);
+  addBush(scene, 820, 240);
   addBush(scene, 1500, 260, true);
   addBush(scene, 2000, 640, true);
   addBush(scene, 1680, 980, true);
+  addBush(scene, 1320, 500, true);
 
   addSignPost(scene, DANGER_ZONE.x + 36, 260, "DANGER", undefined, THEME_HEX.damage);
   addSignPost(scene, DANGER_ZONE.x + 36, 920, "DANGER", undefined, THEME_HEX.damage);

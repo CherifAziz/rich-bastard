@@ -16,7 +16,7 @@ function floatText(
   const label = scene.add
     .text(x, y, message, {
       fontFamily: FONT,
-      fontSize: "16px",
+        fontSize: "18px",
       fontStyle: "bold",
       color,
       stroke: THEME_HEX.stroke,

@@ -2,11 +2,12 @@ import Phaser from "phaser";
 import { THEME } from "../../data/theme";
 
 export const TEX = {
-  townFloor: "tex-town-floor",
-  wildFloor: "tex-wild-floor",
-  dangerFloor: "tex-danger-floor",
-  stoneWall: "tex-stone-wall",
-  earthWall: "tex-earth-wall",
+  townFloor: "tex-town-floor-v2",
+  wildFloor: "tex-wild-floor-v2",
+  dryFloor: "tex-dry-floor-v2",
+  dangerFloor: "tex-danger-floor-v2",
+  stoneWall: "tex-stone-wall-v2",
+  earthWall: "tex-earth-wall-v2",
 } as const;
 
 const TILE = 128;
@@ -46,17 +47,15 @@ function ensureCanvasTexture(
 
 function paintCobble(ctx: CanvasRenderingContext2D): void {
   const rng = createRng(11);
-  ctx.fillStyle = rgb(THEME.townFloor, -18);
+  ctx.fillStyle = rgb(THEME.townFloor, -8);
   ctx.fillRect(0, 0, TILE, TILE);
-  const gw = 20;
-  const gh = 14;
+  const gw = 22;
+  const gh = 16;
   for (let y = 0; y < TILE + gh; y += gh) {
     const stagger = ((y / gh) % 2) * (gw / 2);
     for (let x = -gw; x < TILE + gw; x += gw) {
-      ctx.fillStyle = rgb(THEME.townFloor, rng() * 26 - 12);
-      ctx.fillRect(x + stagger + 1, y + 1, gw - 3, gh - 3);
-      ctx.strokeStyle = "rgba(42, 32, 22, 0.28)";
-      ctx.strokeRect(x + stagger + 1, y + 1, gw - 3, gh - 3);
+      ctx.fillStyle = rgb(THEME.townFloor, rng() * 14 - 7);
+      ctx.fillRect(x + stagger + 1, y + 1, gw - 2, gh - 2);
     }
   }
 }
@@ -65,38 +64,45 @@ function paintGrass(ctx: CanvasRenderingContext2D): void {
   const rng = createRng(27);
   ctx.fillStyle = rgb(THEME.wildGrass);
   ctx.fillRect(0, 0, TILE, TILE);
-  for (let i = 0; i < 220; i++) {
-    const x = rng() * TILE;
-    const y = rng() * TILE;
-    ctx.fillStyle = rgb(
-      rng() > 0.15 ? THEME.wildGrass : THEME.wildDirt,
-      rng() * 30 - 20,
-    );
-    ctx.fillRect(x, y, 2 + rng() * 3, 2 + rng() * 5);
+  for (let i = 0; i < 48; i++) {
+    ctx.fillStyle = rgb(THEME.wildGrass, rng() * 16 - 10);
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(rng() * TILE, rng() * TILE, 8 + rng() * 18, 6 + rng() * 12);
   }
+  ctx.globalAlpha = 1;
+}
+
+function paintDry(ctx: CanvasRenderingContext2D): void {
+  const rng = createRng(33);
+  ctx.fillStyle = rgb(THEME.dryGrass);
+  ctx.fillRect(0, 0, TILE, TILE);
+  for (let i = 0; i < 36; i++) {
+    ctx.fillStyle = rgb(
+      rng() > 0.5 ? THEME.wildDirt : THEME.wildGrassDark,
+      rng() * 12 - 8,
+    );
+    ctx.globalAlpha = 0.32;
+    ctx.fillRect(rng() * TILE, rng() * TILE, 10 + rng() * 22, 7 + rng() * 14);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function paintDanger(ctx: CanvasRenderingContext2D): void {
   const rng = createRng(44);
   ctx.fillStyle = rgb(THEME.dangerGround);
   ctx.fillRect(0, 0, TILE, TILE);
-  for (let i = 0; i < 28; i++) {
-    ctx.fillStyle = rgb(
-      rng() > 0.55 ? THEME.dangerGroundDark : THEME.dangerAccent,
-      rng() * 14 - 18,
-    );
-    ctx.globalAlpha = 0.28 + rng() * 0.25;
-    ctx.fillRect(rng() * TILE, rng() * TILE, 18 + rng() * 36, 10 + rng() * 22);
+  for (let i = 0; i < 22; i++) {
+    ctx.fillStyle = rgb(THEME.dangerGroundDark, rng() * 10 - 6);
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(rng() * TILE, rng() * TILE, 16 + rng() * 28, 10 + rng() * 20);
   }
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = "rgba(20, 10, 8, 0.28)";
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 4; i++) {
-    ctx.beginPath();
-    ctx.moveTo(rng() * TILE, rng() * TILE);
-    ctx.lineTo(rng() * TILE, rng() * TILE);
-    ctx.stroke();
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = rgb(THEME.dangerAccent);
+    ctx.globalAlpha = 0.16;
+    ctx.fillRect(rng() * TILE, rng() * TILE, 8 + rng() * 14, 6 + rng() * 10);
   }
+  ctx.globalAlpha = 1;
 }
 
 function paintBrick(
@@ -121,6 +127,7 @@ function paintBrick(
 export function ensureWorldTextures(scene: Phaser.Scene): void {
   ensureCanvasTexture(scene, TEX.townFloor, paintCobble);
   ensureCanvasTexture(scene, TEX.wildFloor, paintGrass);
+  ensureCanvasTexture(scene, TEX.dryFloor, paintDry);
   ensureCanvasTexture(scene, TEX.dangerFloor, paintDanger);
   ensureCanvasTexture(scene, TEX.stoneWall, (ctx) =>
     paintBrick(ctx, THEME.wallTown, THEME.wallTownDark),
