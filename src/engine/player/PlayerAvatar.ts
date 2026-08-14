@@ -48,6 +48,23 @@ export class PlayerAvatar {
     });
   }
 
+  flashHit(scene: Phaser.Scene): void {
+    this.sprite.setFillStyle(0xe05a4f);
+    scene.time.delayedCall(90, () => {
+      this.sprite.setFillStyle(0xe8c547);
+    });
+  }
+
+  applyKnockback(dirX: number, dirY: number, strength: number): void {
+    this.body.setVelocity(dirX * strength, dirY * strength);
+  }
+
+  placeAt(x: number, y: number): void {
+    this.sprite.setPosition(x, y);
+    this.body.reset(x, y);
+    this.syncState();
+  }
+
   syncState(): void {
     this.state.x = this.sprite.x;
     this.state.y = this.sprite.y;

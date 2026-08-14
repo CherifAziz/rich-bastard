@@ -3,6 +3,7 @@ import type { GroundLoot } from "../../game/rewards/rewards";
 
 const LOOT_COLORS: Record<string, number> = {
   cheese: 0xf4c430,
+  scrap: 0xb8b8c0,
 };
 
 export class LootDrop {

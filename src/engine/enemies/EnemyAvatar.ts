@@ -3,6 +3,7 @@ import type { EnemyState } from "../../game/enemies/enemy";
 
 const ENEMY_COLORS: Record<string, number> = {
   rat: 0xa65d3a,
+  bandit: 0x7a3038,
 };
 
 const DEFAULT_COLOR = 0x8a5a44;

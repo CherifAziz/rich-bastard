@@ -14,12 +14,15 @@ export type EnemyState = {
   contactDamage: number;
   aggroRange: number;
   stopRange: number;
+  attackRange: number;
+  attackCooldownMs: number;
   goldReward: number;
   lootItemId: string | null;
   lootQuantity: number;
   alive: boolean;
   rewarded: boolean;
   stunnedUntil: number;
+  lastAttackAt: number;
 };
 
 export function createEnemy(
@@ -42,12 +45,15 @@ export function createEnemy(
     contactDamage: definition.contactDamage,
     aggroRange: definition.aggroRange,
     stopRange: definition.stopRange,
+    attackRange: definition.attackRange,
+    attackCooldownMs: definition.attackCooldownMs,
     goldReward: definition.goldReward,
     lootItemId: definition.lootItemId,
     lootQuantity: definition.lootQuantity,
     alive: true,
     rewarded: false,
     stunnedUntil: 0,
+    lastAttackAt: -10000,
   };
 }
 
@@ -64,8 +70,9 @@ export function chaseVelocity(
   const dx = playerX - enemy.x;
   const dy = playerY - enemy.y;
   const distance = Math.hypot(dx, dy);
+  const stopAt = enemy.attackRange > 0 ? enemy.attackRange : enemy.stopRange;
 
-  if (distance > enemy.aggroRange || distance <= enemy.stopRange) {
+  if (distance > enemy.aggroRange || distance <= stopAt) {
     return { x: 0, y: 0 };
   }
 

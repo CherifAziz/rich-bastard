@@ -47,10 +47,19 @@ export type EnemySpawn = {
   y: number;
 };
 
+export const DANGER_ZONE: ZoneRect = {
+  x: 1280,
+  y: 0,
+  width: TEST_ZONE_WIDTH - 1280,
+  height: TEST_ZONE_HEIGHT,
+};
+
 export const TEST_ZONE_ENEMIES: EnemySpawn[] = [
   { typeId: "rat", x: 560, y: 520 },
   { typeId: "rat", x: 240, y: 620 },
   { typeId: "rat", x: 780, y: 480 },
+  { typeId: "bandit", x: 1580, y: 520 },
+  { typeId: "bandit", x: 1920, y: 980 },
 ];
 
 export const TEST_ZONE_OBSTACLES: ZoneRect[] = [

@@ -36,13 +36,14 @@ export function showDamageNumber(
   x: number,
   y: number,
   damage: number,
+  color = "#ffd36a",
 ): void {
   const label = scene.add
     .text(x, y - 22, `-${damage}`, {
       fontFamily: "Segoe UI, sans-serif",
       fontSize: "18px",
       fontStyle: "bold",
-      color: "#ffd36a",
+      color,
       stroke: "#1a1208",
       strokeThickness: 3,
     })
@@ -194,6 +195,91 @@ export function showPurchaseFeedback(
     y: y - 90,
     alpha: 0,
     duration: 1400,
+    ease: "Quad.easeOut",
+    onComplete: () => {
+      label.destroy();
+    },
+  });
+}
+
+export function showEnemyMeleeSwing(
+  scene: Phaser.Scene,
+  attack: {
+    originX: number;
+    originY: number;
+    dirX: number;
+    dirY: number;
+    range: number;
+  },
+): void {
+  const centerX = attack.originX + attack.dirX * (attack.range / 2);
+  const centerY = attack.originY + attack.dirY * (attack.range / 2);
+  const angle = Math.atan2(attack.dirY, attack.dirX);
+
+  const swing = scene.add.rectangle(
+    centerX,
+    centerY,
+    attack.range,
+    28,
+    0xe05a4f,
+    0.7,
+  );
+  swing.setRotation(angle);
+  swing.setDepth(12);
+
+  scene.tweens.add({
+    targets: swing,
+    alpha: 0,
+    duration: 110,
+    onComplete: () => {
+      swing.destroy();
+    },
+  });
+}
+
+export function showYouDied(scene: Phaser.Scene): Phaser.GameObjects.Text {
+  return scene.add
+    .text(
+      scene.cameras.main.width / 2,
+      scene.cameras.main.height / 2,
+      "YOU DIED",
+      {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: "48px",
+        fontStyle: "bold",
+        color: "#e05a4f",
+        stroke: "#1a1208",
+        strokeThickness: 6,
+      },
+    )
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(40);
+}
+
+export function showGoldLost(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  goldLost: number,
+): void {
+  const label = scene.add
+    .text(x, y - 36, `-$${goldLost}`, {
+      fontFamily: "Segoe UI, sans-serif",
+      fontSize: "18px",
+      fontStyle: "bold",
+      color: "#e05a4f",
+      stroke: "#1a1208",
+      strokeThickness: 3,
+    })
+    .setOrigin(0.5)
+    .setDepth(17);
+
+  scene.tweens.add({
+    targets: label,
+    y: y - 70,
+    alpha: 0,
+    duration: 900,
     ease: "Quad.easeOut",
     onComplete: () => {
       label.destroy();

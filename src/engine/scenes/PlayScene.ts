@@ -3,19 +3,26 @@ import { CHEESE_MERCHANT } from "../../data/merchants";
 import { ENEMY_BY_ID } from "../../data/enemies";
 import { ITEM_BY_ID } from "../../data/items";
 import { WEAPON_BY_ID } from "../../data/weapons";
+import { tryEnemyMeleeAttack, type EnemyMeleeAttack } from "../../game/combat/enemyMelee";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
 import { buyWeapon } from "../../game/economy/buy";
+import { applyDeathGoldPenalty } from "../../game/economy/death";
 import { sellAll, sellItem } from "../../game/economy/sell";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem, getItemQuantity } from "../../game/inventory/inventory";
 import { isInTalkRange } from "../../game/merchants/merchant";
-import { createPlayer, getEquippedWeapon } from "../../game/player/player";
+import {
+  createPlayer,
+  getEquippedWeapon,
+  respawnPlayer,
+} from "../../game/player/player";
 import {
   createGroundLoot,
   grantKillReward,
   lootSpawnPosition,
 } from "../../game/rewards/rewards";
 import {
+  DANGER_ZONE,
   TEST_ZONE_ENEMIES,
   TEST_ZONE_HEIGHT,
   TEST_ZONE_OBSTACLES,
@@ -24,7 +31,17 @@ import {
   TEST_ZONE_WIDTH,
   type ZoneRect,
 } from "../../game/world/testZone";
-import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback, showPurchaseFeedback, showSaleFeedback } from "../combat/feedback";
+import {
+  showDamageNumber,
+  showEnemyMeleeSwing,
+  showGoldLost,
+  showKillReward,
+  showMeleeSwing,
+  showPickupFeedback,
+  showPurchaseFeedback,
+  showSaleFeedback,
+  showYouDied,
+} from "../combat/feedback";
 import { EnemyAvatar } from "../enemies/EnemyAvatar";
 import {
   createMovementKeys,
@@ -41,7 +58,10 @@ const WALL_COLOR = 0x1c1c26;
 const OBSTACLE_COLOR = 0x4a4558;
 const GRID_COLOR = 0xffffff;
 const HIT_KNOCKBACK = 220;
+const PLAYER_HIT_KNOCKBACK = 180;
 const LOOT_PICKUP_RANGE = 24;
+const DEATH_DISPLAY_MS = 1200;
+const DANGER_FLOOR_COLOR = 0x3d2428;
 
 export class PlayScene extends Phaser.Scene {
   private player!: PlayerAvatar;
@@ -58,6 +78,7 @@ export class PlayScene extends Phaser.Scene {
   private hudInventory!: Phaser.GameObjects.Text;
   private hudAttack!: Phaser.GameObjects.Text;
   private hudCoords!: Phaser.GameObjects.Text;
+  private dying = false;
 
   constructor() {
     super("play");
@@ -78,8 +99,8 @@ export class PlayScene extends Phaser.Scene {
     this.spawnEnemies();
     this.merchantStand = new MerchantStand(this);
     this.merchantPanel = new MerchantPanel({
-      onSellOne: () => this.handleSell(1),
-      onSellAll: () => this.handleSell("all"),
+      onSellOne: (itemId) => this.handleSell(itemId, 1),
+      onSellAll: (itemId) => this.handleSell(itemId, "all"),
       onBuy: () => this.handleBuy(),
       onClose: () => this.closeMerchant(),
     });
@@ -112,6 +133,7 @@ export class PlayScene extends Phaser.Scene {
 
   update(time: number): void {
     const shopOpen = this.merchantPanel.isOpen;
+    const controlsLocked = shopOpen || this.dying;
     const inTalkRange = isInTalkRange(
       this.player.state.x,
       this.player.state.y,
@@ -120,17 +142,17 @@ export class PlayScene extends Phaser.Scene {
       CHEESE_MERCHANT.talkRange,
     );
 
-    this.merchantStand.setPromptVisible(inTalkRange && !shopOpen);
+    this.merchantStand.setPromptVisible(inTalkRange && !controlsLocked);
 
     if (
-      !shopOpen &&
+      !controlsLocked &&
       inTalkRange &&
       Phaser.Input.Keyboard.JustDown(this.interactKey)
     ) {
       this.openMerchant();
     }
 
-    if (shopOpen) {
+    if (controlsLocked) {
       this.player.applyMoveInput(0, 0);
       this.player.syncState();
       for (const enemy of this.enemies) {
@@ -145,7 +167,7 @@ export class PlayScene extends Phaser.Scene {
       this.collectNearbyLoot();
     }
 
-    if (!shopOpen) {
+    if (!controlsLocked) {
       for (const enemy of this.enemies) {
         if (!enemy.state.alive) {
           continue;
@@ -164,16 +186,32 @@ export class PlayScene extends Phaser.Scene {
         );
         enemy.applyVelocity(velocity.x, velocity.y);
         enemy.syncState();
+
+        const attack = tryEnemyMeleeAttack(
+          enemy.state,
+          this.player.state,
+          time,
+        );
+        if (attack) {
+          this.resolveEnemyAttack(attack);
+        }
       }
     }
 
     const weapon = getEquippedWeapon(this.player.state);
-    this.hudHp.setText(`HP ${this.player.state.hp}/${this.player.state.maxHp}`);
+    this.hudHp.setText(
+      `HP ${this.player.state.hp} / ${this.player.state.maxHp}`,
+    );
     this.hudGold.setText(`$${this.player.state.gold}`);
     this.hudWeapon.setText(`⚔️ ${weapon.name}`);
     this.hudDamage.setText(`DMG ${weapon.damage}`);
     this.hudInventory.setText(
-      `Cheese ×${getItemQuantity(this.player.state.inventory, "cheese")}`,
+      Object.values(ITEM_BY_ID)
+        .map(
+          (item) =>
+            `${item.name} ×${getItemQuantity(this.player.state.inventory, item.id)}`,
+        )
+        .join("  "),
     );
     this.hudAttack.setText(
       canMeleeAttack(time, this.player.state.lastAttackAt)
@@ -186,7 +224,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    if (this.merchantPanel.isOpen || pointer.button !== 0) {
+    if (this.merchantPanel.isOpen || this.dying || pointer.button !== 0) {
       return;
     }
 
@@ -243,6 +281,61 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private resolveEnemyAttack(attack: EnemyMeleeAttack): void {
+    showEnemyMeleeSwing(this, attack);
+
+    if (attack.damage <= 0) {
+      return;
+    }
+
+    showDamageNumber(
+      this,
+      this.player.sprite.x,
+      this.player.sprite.y,
+      attack.damage,
+      "#e05a4f",
+    );
+    this.player.flashHit(this);
+    this.player.applyKnockback(attack.dirX, attack.dirY, PLAYER_HIT_KNOCKBACK);
+    this.cameras.main.shake(100, 0.003);
+
+    if (this.player.state.hp <= 0) {
+      this.beginDeath();
+    }
+  }
+
+  private beginDeath(): void {
+    if (this.dying) {
+      return;
+    }
+
+    this.dying = true;
+    this.player.body.setVelocity(0, 0);
+    if (this.merchantPanel.isOpen) {
+      this.closeMerchant();
+    }
+
+    const overlay = showYouDied(this);
+    this.time.delayedCall(DEATH_DISPLAY_MS, () => {
+      overlay.destroy();
+      const penalty = applyDeathGoldPenalty(this.player.state);
+      respawnPlayer(
+        this.player.state,
+        TEST_ZONE_SPAWN.x,
+        TEST_ZONE_SPAWN.y,
+      );
+      this.player.placeAt(TEST_ZONE_SPAWN.x, TEST_ZONE_SPAWN.y);
+      showGoldLost(
+        this,
+        this.player.state.x,
+        this.player.state.y,
+        penalty.goldLost,
+      );
+      this.dying = false;
+      this.game.canvas.focus();
+    });
+  }
+
   private spawnEnemies(): void {
     this.enemies = TEST_ZONE_ENEMIES.map((spawn, index) => {
       const definition = ENEMY_BY_ID[spawn.typeId];
@@ -268,6 +361,8 @@ export class PlayScene extends Phaser.Scene {
       )
       .setDepth(0);
 
+    this.drawDangerZone();
+
     const grid = this.add.graphics();
     grid.setDepth(1);
     grid.lineStyle(1, GRID_COLOR, 0.06);
@@ -279,6 +374,60 @@ export class PlayScene extends Phaser.Scene {
     for (let y = 0; y <= TEST_ZONE_HEIGHT; y += 64) {
       grid.lineBetween(0, y, TEST_ZONE_WIDTH, y);
     }
+  }
+
+  private drawDangerZone(): void {
+    this.add
+      .rectangle(
+        DANGER_ZONE.x + DANGER_ZONE.width / 2,
+        DANGER_ZONE.y + DANGER_ZONE.height / 2,
+        DANGER_ZONE.width,
+        DANGER_ZONE.height,
+        DANGER_FLOOR_COLOR,
+      )
+      .setDepth(0.5);
+
+    const border = this.add.graphics();
+    border.setDepth(2);
+    border.lineStyle(4, 0xc45c4a, 0.85);
+    border.strokeRect(
+      DANGER_ZONE.x,
+      DANGER_ZONE.y + 8,
+      DANGER_ZONE.width - 8,
+      DANGER_ZONE.height - 16,
+    );
+    border.lineStyle(6, 0xc45c4a, 1);
+    border.lineBetween(
+      DANGER_ZONE.x,
+      48,
+      DANGER_ZONE.x,
+      TEST_ZONE_HEIGHT - 48,
+    );
+
+    const signStyle = {
+      fontFamily: "Segoe UI, sans-serif",
+      fontSize: "28px",
+      fontStyle: "bold",
+      color: "#e05a4f",
+      stroke: "#1a1208",
+      strokeThickness: 5,
+    };
+
+    this.add
+      .text(DANGER_ZONE.x + 24, 220, "DANGER", signStyle)
+      .setOrigin(0, 0.5)
+      .setDepth(3);
+    this.add
+      .text(DANGER_ZONE.x + 24, 258, "ZONE", {
+        ...signStyle,
+        fontSize: "22px",
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(3);
+    this.add
+      .text(DANGER_ZONE.x + 24, 900, "DANGER", signStyle)
+      .setOrigin(0, 0.5)
+      .setDepth(3);
   }
 
   private createBlockers(): Phaser.Physics.Arcade.StaticGroup {
@@ -428,16 +577,18 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private refreshMerchantPanel(): void {
-    const item = ITEM_BY_ID[CHEESE_MERCHANT.itemId];
     const weapon = WEAPON_BY_ID[CHEESE_MERCHANT.weaponId];
-    if (!item || !weapon) {
+    if (!weapon) {
       return;
     }
 
     this.merchantPanel.refresh({
-      itemName: item.name,
-      quantity: getItemQuantity(this.player.state.inventory, item.id),
-      sellPrice: item.sellPrice,
+      sellItems: Object.values(ITEM_BY_ID).map((item) => ({
+        itemId: item.id,
+        name: item.name,
+        quantity: getItemQuantity(this.player.state.inventory, item.id),
+        sellPrice: item.sellPrice,
+      })),
       gold: this.player.state.gold,
       weaponName: weapon.name,
       weaponPrice: weapon.price,
@@ -470,11 +621,11 @@ export class PlayScene extends Phaser.Scene {
     this.refreshMerchantPanel();
   }
 
-  private handleSell(mode: 1 | "all"): void {
+  private handleSell(itemId: string, mode: 1 | "all"): void {
     const result =
       mode === "all"
-        ? sellAll(this.player.state, CHEESE_MERCHANT.itemId)
-        : sellItem(this.player.state, CHEESE_MERCHANT.itemId, 1);
+        ? sellAll(this.player.state, itemId)
+        : sellItem(this.player.state, itemId, 1);
 
     if (result.success) {
       this.merchantPanel.showFeedback(

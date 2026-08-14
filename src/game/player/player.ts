@@ -10,7 +10,6 @@ export type PlayerState = {
   speed: number;
   hp: number;
   maxHp: number;
-  damage: number;
   defense: number;
   gold: number;
   inventory: InventoryItem[];
@@ -18,6 +17,7 @@ export type PlayerState = {
   facingX: number;
   facingY: number;
   lastAttackAt: number;
+  invulnerableUntil: number;
 };
 
 export function createPlayer(x: number, y: number): PlayerState {
@@ -29,7 +29,6 @@ export function createPlayer(x: number, y: number): PlayerState {
     speed: 260,
     hp: 100,
     maxHp: 100,
-    damage: 10,
     defense: 0,
     gold: 100,
     inventory: createInventory(),
@@ -37,6 +36,7 @@ export function createPlayer(x: number, y: number): PlayerState {
     facingX: 1,
     facingY: 0,
     lastAttackAt: -1000,
+    invulnerableUntil: 0,
   };
 }
 
@@ -46,6 +46,17 @@ export function getEquippedWeapon(player: PlayerState): WeaponDefinition {
     : undefined;
 
   return equipped ?? RUSTY_KNIFE;
+}
+
+export function respawnPlayer(
+  player: PlayerState,
+  x: number,
+  y: number,
+): void {
+  player.hp = player.maxHp;
+  player.x = x;
+  player.y = y;
+  player.invulnerableUntil = 0;
 }
 
 export function velocityFromInput(
