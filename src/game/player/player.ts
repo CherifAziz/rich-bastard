@@ -1,3 +1,6 @@
+import type { InventoryItem } from "../inventory/inventory";
+import { createInventory } from "../inventory/inventory";
+
 export type PlayerState = {
   x: number;
   y: number;
@@ -9,6 +12,7 @@ export type PlayerState = {
   damage: number;
   defense: number;
   gold: number;
+  inventory: InventoryItem[];
   equippedWeaponId: string | null;
   facingX: number;
   facingY: number;
@@ -27,6 +31,7 @@ export function createPlayer(x: number, y: number): PlayerState {
     damage: 10,
     defense: 0,
     gold: 100,
+    inventory: createInventory(),
     equippedWeaponId: null,
     facingX: 1,
     facingY: 0,

@@ -2,8 +2,13 @@ import Phaser from "phaser";
 import { ENEMY_BY_ID } from "../../data/enemies";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
+import { addItem, getItemQuantity } from "../../game/inventory/inventory";
 import { createPlayer } from "../../game/player/player";
-import { grantKillReward } from "../../game/rewards/rewards";
+import {
+  createGroundLoot,
+  grantKillReward,
+  lootSpawnPosition,
+} from "../../game/rewards/rewards";
 import {
   TEST_ZONE_ENEMIES,
   TEST_ZONE_HEIGHT,
@@ -13,13 +18,14 @@ import {
   TEST_ZONE_WIDTH,
   type ZoneRect,
 } from "../../game/world/testZone";
-import { showDamageNumber, showKillReward, showMeleeSwing } from "../combat/feedback";
+import { showDamageNumber, showKillReward, showMeleeSwing, showPickupFeedback } from "../combat/feedback";
 import { EnemyAvatar } from "../enemies/EnemyAvatar";
 import {
   createMovementKeys,
   readMoveAxis,
   type MovementKeys,
 } from "../input/movementInput";
+import { LootDrop } from "../loot/LootDrop";
 import { PlayerAvatar } from "../player/PlayerAvatar";
 
 const FLOOR_COLOR = 0x2a3d32;
@@ -27,13 +33,16 @@ const WALL_COLOR = 0x1c1c26;
 const OBSTACLE_COLOR = 0x4a4558;
 const GRID_COLOR = 0xffffff;
 const HIT_KNOCKBACK = 220;
+const LOOT_PICKUP_RANGE = 24;
 
 export class PlayScene extends Phaser.Scene {
   private player!: PlayerAvatar;
   private enemies: EnemyAvatar[] = [];
+  private lootDrops: LootDrop[] = [];
   private moveKeys!: MovementKeys;
   private hudHp!: Phaser.GameObjects.Text;
   private hudGold!: Phaser.GameObjects.Text;
+  private hudInventory!: Phaser.GameObjects.Text;
   private hudAttack!: Phaser.GameObjects.Text;
   private hudCoords!: Phaser.GameObjects.Text;
 
@@ -79,6 +88,7 @@ export class PlayScene extends Phaser.Scene {
     const axis = readMoveAxis(this.moveKeys);
     this.player.applyMoveInput(axis.x, axis.y);
     this.player.syncState();
+    this.collectNearbyLoot();
 
     for (const enemy of this.enemies) {
       if (!enemy.state.alive) {
@@ -102,6 +112,9 @@ export class PlayScene extends Phaser.Scene {
 
     this.hudHp.setText(`HP ${this.player.state.hp}/${this.player.state.maxHp}`);
     this.hudGold.setText(`$${this.player.state.gold}`);
+    this.hudInventory.setText(
+      `Cheese ×${getItemQuantity(this.player.state.inventory, "cheese")}`,
+    );
     this.hudAttack.setText(
       canMeleeAttack(time, this.player.state.lastAttackAt)
         ? "Attaque prête"
@@ -156,8 +169,8 @@ export class PlayScene extends Phaser.Scene {
             avatar.sprite.y,
             hit.enemy.name,
             reward.gold,
-            reward.items,
           );
+          this.spawnLoot(reward.groundLoot, hit.enemy.x, hit.enemy.y);
         }
         avatar.die(this);
         continue;
@@ -261,14 +274,75 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(20);
 
+    this.hudInventory = this.add
+      .text(16, 78, "", { ...style, color: "#f4c430" })
+      .setScrollFactor(0)
+      .setDepth(20);
+
     this.hudAttack = this.add
-      .text(16, 78, "", { ...style, fontSize: "14px", color: "#d8d8e0" })
+      .text(16, 98, "", { ...style, fontSize: "14px", color: "#d8d8e0" })
       .setScrollFactor(0)
       .setDepth(20);
 
     this.hudCoords = this.add
-      .text(16, 98, "", { ...style, fontSize: "14px", color: "#8a8a96" })
+      .text(16, 118, "", { ...style, fontSize: "14px", color: "#8a8a96" })
       .setScrollFactor(0)
       .setDepth(20);
+  }
+
+  private spawnLoot(
+    items: { id: string; name: string; quantity: number }[],
+    enemyX: number,
+    enemyY: number,
+  ): void {
+    const position = lootSpawnPosition(
+      enemyX,
+      enemyY,
+      this.player.state.x,
+      this.player.state.y,
+    );
+
+    for (const [index, item] of items.entries()) {
+      const loot = createGroundLoot(
+        `${item.id}-${this.lootDrops.length}`,
+        item,
+        position.x + index * 16,
+        position.y,
+      );
+      const drop = new LootDrop(this, loot);
+      this.lootDrops.push(drop);
+    }
+  }
+
+  private collectNearbyLoot(): void {
+    for (const drop of this.lootDrops) {
+      if (drop.loot.collected) {
+        continue;
+      }
+
+      const distance = Math.hypot(
+        this.player.state.x - drop.loot.x,
+        this.player.state.y - drop.loot.y,
+      );
+
+      if (distance <= LOOT_PICKUP_RANGE) {
+        this.collectLoot(drop);
+      }
+    }
+  }
+
+  private collectLoot(drop: LootDrop): void {
+    if (!drop.collect()) {
+      return;
+    }
+
+    addItem(this.player.state.inventory, drop.loot.itemId, drop.loot.quantity);
+    showPickupFeedback(
+      this,
+      this.player.state.x,
+      this.player.state.y,
+      drop.loot.name,
+      drop.loot.quantity,
+    );
   }
 }

@@ -67,13 +67,8 @@ export function showKillReward(
   y: number,
   enemyName: string,
   gold: number,
-  items: { name: string; quantity: number }[],
 ): void {
-  const lines = [
-    `${enemyName.toUpperCase()} DEFEATED`,
-    `+$${gold}`,
-    ...items.map((item) => `${item.name} x${item.quantity}`),
-  ];
+  const lines = [`${enemyName.toUpperCase()} DEFEATED`, `+$${gold}`];
 
   lines.forEach((line, index) => {
     const isTitle = index === 0;
@@ -101,5 +96,36 @@ export function showKillReward(
         label.destroy();
       },
     });
+  });
+}
+
+export function showPickupFeedback(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  name: string,
+  quantity: number,
+): void {
+  const label = scene.add
+    .text(x, y - 28, `+ ${name} ×${quantity}`, {
+      fontFamily: "Segoe UI, sans-serif",
+      fontSize: "16px",
+      fontStyle: "bold",
+      color: "#f4c430",
+      stroke: "#1a1208",
+      strokeThickness: 3,
+    })
+    .setOrigin(0.5)
+    .setDepth(17);
+
+  scene.tweens.add({
+    targets: label,
+    y: y - 58,
+    alpha: 0,
+    duration: 700,
+    ease: "Quad.easeOut",
+    onComplete: () => {
+      label.destroy();
+    },
   });
 }
