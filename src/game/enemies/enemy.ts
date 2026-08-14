@@ -23,6 +23,17 @@ export type EnemyState = {
   rewarded: boolean;
   stunnedUntil: number;
   lastAttackAt: number;
+  pendingAttack: PendingEnemyAttack | null;
+};
+
+export type PendingEnemyAttack = {
+  originX: number;
+  originY: number;
+  dirX: number;
+  dirY: number;
+  range: number;
+  halfWidth: number;
+  resolveAt: number;
 };
 
 export function createEnemy(
@@ -54,6 +65,7 @@ export function createEnemy(
     rewarded: false,
     stunnedUntil: 0,
     lastAttackAt: -10000,
+    pendingAttack: null,
   };
 }
 
@@ -63,7 +75,7 @@ export function chaseVelocity(
   playerY: number,
   now: number,
 ): { x: number; y: number } {
-  if (!enemy.alive || now < enemy.stunnedUntil) {
+  if (!enemy.alive || enemy.pendingAttack || now < enemy.stunnedUntil) {
     return { x: 0, y: 0 };
   }
 

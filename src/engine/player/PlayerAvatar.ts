@@ -41,11 +41,45 @@ export class PlayerAvatar {
     }
   }
 
+  applyVelocity(vx: number, vy: number): void {
+    this.body.setVelocity(vx, vy);
+  }
+
   flashAttack(scene: Phaser.Scene): void {
     this.sprite.setFillStyle(0xfff6c2);
     scene.time.delayedCall(80, () => {
       this.sprite.setFillStyle(0xe8c547);
     });
+  }
+
+  flashDash(scene: Phaser.Scene): void {
+    this.sprite.setFillStyle(0xfff6c2);
+    this.sprite.setAlpha(0.55);
+
+    for (let i = 1; i <= 2; i++) {
+      const ghost = scene.add.rectangle(
+        this.sprite.x - this.state.dashDirX * i * 12,
+        this.sprite.y - this.state.dashDirY * i * 12,
+        this.state.width,
+        this.state.height,
+        0xe8c547,
+        0.35 / i,
+      );
+      ghost.setDepth(9);
+      scene.tweens.add({
+        targets: ghost,
+        alpha: 0,
+        duration: 140,
+        onComplete: () => {
+          ghost.destroy();
+        },
+      });
+    }
+  }
+
+  endDashVisual(): void {
+    this.sprite.setAlpha(1);
+    this.sprite.setFillStyle(0xe8c547);
   }
 
   flashHit(scene: Phaser.Scene): void {

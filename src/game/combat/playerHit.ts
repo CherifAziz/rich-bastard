@@ -1,6 +1,7 @@
 import type { PlayerState } from "../player/player";
 
 export const PLAYER_IFRAME_MS = 400;
+export const PLAYER_HIT_STUN_MS = 150;
 
 export function applyPlayerDamage(
   player: PlayerState,
@@ -18,5 +19,6 @@ export function applyPlayerDamage(
   const dealt = damage;
   player.hp = Math.max(0, player.hp - dealt);
   player.invulnerableUntil = now + PLAYER_IFRAME_MS;
+  player.hitStunUntil = now + PLAYER_HIT_STUN_MS;
   return dealt;
 }

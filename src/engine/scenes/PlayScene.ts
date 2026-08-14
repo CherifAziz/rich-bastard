@@ -3,7 +3,7 @@ import { CHEESE_MERCHANT } from "../../data/merchants";
 import { ENEMY_BY_ID } from "../../data/enemies";
 import { ITEM_BY_ID } from "../../data/items";
 import { WEAPON_BY_ID } from "../../data/weapons";
-import { tryEnemyMeleeAttack, type EnemyMeleeAttack } from "../../game/combat/enemyMelee";
+import { tickEnemyMelee } from "../../game/combat/enemyMelee";
 import { canMeleeAttack, tryMeleeAttack } from "../../game/combat/melee";
 import { buyWeapon } from "../../game/economy/buy";
 import { applyDeathGoldPenalty } from "../../game/economy/death";
@@ -11,6 +11,12 @@ import { sellAll, sellItem } from "../../game/economy/sell";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem, getItemQuantity } from "../../game/inventory/inventory";
 import { isInTalkRange } from "../../game/merchants/merchant";
+import {
+  dashHudText,
+  dashVelocity,
+  isDashing,
+  tryStartDash,
+} from "../../game/player/dash";
 import {
   createPlayer,
   getEquippedWeapon,
@@ -37,6 +43,7 @@ import {
   showGoldLost,
   showKillReward,
   showMeleeSwing,
+  showMiss,
   showPickupFeedback,
   showPurchaseFeedback,
   showSaleFeedback,
@@ -58,7 +65,7 @@ const WALL_COLOR = 0x1c1c26;
 const OBSTACLE_COLOR = 0x4a4558;
 const GRID_COLOR = 0xffffff;
 const HIT_KNOCKBACK = 220;
-const PLAYER_HIT_KNOCKBACK = 180;
+const PLAYER_HIT_KNOCKBACK = 280;
 const LOOT_PICKUP_RANGE = 24;
 const DEATH_DISPLAY_MS = 1200;
 const DANGER_FLOOR_COLOR = 0x3d2428;
@@ -71,14 +78,17 @@ export class PlayScene extends Phaser.Scene {
   private merchantPanel!: MerchantPanel;
   private moveKeys!: MovementKeys;
   private interactKey!: Phaser.Input.Keyboard.Key;
+  private dashKey!: Phaser.Input.Keyboard.Key;
   private hudHp!: Phaser.GameObjects.Text;
   private hudGold!: Phaser.GameObjects.Text;
   private hudWeapon!: Phaser.GameObjects.Text;
   private hudDamage!: Phaser.GameObjects.Text;
   private hudInventory!: Phaser.GameObjects.Text;
   private hudAttack!: Phaser.GameObjects.Text;
+  private hudDash!: Phaser.GameObjects.Text;
   private hudCoords!: Phaser.GameObjects.Text;
   private dying = false;
+  private wasDashing = false;
 
   constructor() {
     super("play");
@@ -121,8 +131,12 @@ export class PlayScene extends Phaser.Scene {
     if (!keyboard) {
       throw new Error("Keyboard input is not available");
     }
-    keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.E);
+    keyboard.addCapture([
+      Phaser.Input.Keyboard.KeyCodes.E,
+      Phaser.Input.Keyboard.KeyCodes.SPACE,
+    ]);
     this.interactKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.dashKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.input.setDefaultCursor("crosshair");
     this.input.on("pointerdown", this.onPointerDown, this);
 
@@ -161,40 +175,53 @@ export class PlayScene extends Phaser.Scene {
         }
       }
     } else {
-      const axis = readMoveAxis(this.moveKeys);
-      this.player.applyMoveInput(axis.x, axis.y);
+      if (Phaser.Input.Keyboard.JustDown(this.dashKey)) {
+        const axis = readMoveAxis(this.moveKeys);
+        if (tryStartDash(this.player.state, axis.x, axis.y, time)) {
+          this.player.flashDash(this);
+        }
+      }
+
+      const dashing = isDashing(this.player.state, time);
+      if (this.wasDashing && !dashing) {
+        this.player.endDashVisual();
+      }
+      this.wasDashing = dashing;
+
+      if (dashing) {
+        const velocity = dashVelocity(this.player.state);
+        this.player.applyVelocity(velocity.x, velocity.y);
+      } else if (time < this.player.state.hitStunUntil) {
+        // Keep knockback velocity instead of overwriting it with walk input.
+      } else {
+        const axis = readMoveAxis(this.moveKeys);
+        this.player.applyMoveInput(axis.x, axis.y);
+      }
+
       this.player.syncState();
       this.collectNearbyLoot();
     }
 
-    if (!controlsLocked) {
+    if (!this.dying) {
       for (const enemy of this.enemies) {
         if (!enemy.state.alive) {
           continue;
         }
 
-        if (time < enemy.state.stunnedUntil) {
-          enemy.syncState();
-          continue;
+        if (!controlsLocked && time >= enemy.state.stunnedUntil) {
+          const velocity = chaseVelocity(
+            enemy.state,
+            this.player.state.x,
+            this.player.state.y,
+            time,
+          );
+          enemy.applyVelocity(velocity.x, velocity.y);
+        } else if (enemy.state.pendingAttack) {
+          enemy.applyVelocity(0, 0);
         }
 
-        const velocity = chaseVelocity(
-          enemy.state,
-          this.player.state.x,
-          this.player.state.y,
-          time,
-        );
-        enemy.applyVelocity(velocity.x, velocity.y);
         enemy.syncState();
-
-        const attack = tryEnemyMeleeAttack(
-          enemy.state,
-          this.player.state,
-          time,
-        );
-        if (attack) {
-          this.resolveEnemyAttack(attack);
-        }
+        this.handleEnemyMelee(enemy, time);
       }
     }
 
@@ -214,10 +241,12 @@ export class PlayScene extends Phaser.Scene {
         .join("  "),
     );
     this.hudAttack.setText(
-      canMeleeAttack(time, this.player.state.lastAttackAt)
-        ? "Attaque prête"
-        : "Attaque…",
+      isDashing(this.player.state, time) ||
+        !canMeleeAttack(time, this.player.state.lastAttackAt)
+        ? "Attaque…"
+        : "Attaque prête",
     );
+    this.hudDash.setText(dashHudText(this.player.state, time));
     this.hudCoords.setText(
       `${Math.round(this.player.state.x)}, ${Math.round(this.player.state.y)}`,
     );
@@ -281,10 +310,23 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  private resolveEnemyAttack(attack: EnemyMeleeAttack): void {
-    showEnemyMeleeSwing(this, attack);
+  private handleEnemyMelee(enemy: EnemyAvatar, now: number): void {
+    const result = tickEnemyMelee(enemy.state, this.player.state, now);
+    if (!result) {
+      enemy.clearTelegraph();
+      return;
+    }
 
-    if (attack.damage <= 0) {
+    if (result.kind === "windup") {
+      enemy.showTelegraph(result.telegraph, now);
+      return;
+    }
+
+    enemy.clearTelegraph();
+    showEnemyMeleeSwing(this, result.telegraph);
+
+    if (result.kind === "miss") {
+      showMiss(this, result.telegraph.originX, result.telegraph.originY);
       return;
     }
 
@@ -292,11 +334,15 @@ export class PlayScene extends Phaser.Scene {
       this,
       this.player.sprite.x,
       this.player.sprite.y,
-      attack.damage,
+      result.damage,
       "#e05a4f",
     );
     this.player.flashHit(this);
-    this.player.applyKnockback(attack.dirX, attack.dirY, PLAYER_HIT_KNOCKBACK);
+    this.player.applyKnockback(
+      result.telegraph.dirX,
+      result.telegraph.dirY,
+      PLAYER_HIT_KNOCKBACK,
+    );
     this.cameras.main.shake(100, 0.003);
 
     if (this.player.state.hp <= 0) {
@@ -310,7 +356,13 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.dying = true;
+    this.wasDashing = false;
+    this.player.endDashVisual();
     this.player.body.setVelocity(0, 0);
+    for (const enemy of this.enemies) {
+      enemy.state.pendingAttack = null;
+      enemy.clearTelegraph();
+    }
     if (this.merchantPanel.isOpen) {
       this.closeMerchant();
     }
@@ -325,6 +377,7 @@ export class PlayScene extends Phaser.Scene {
         TEST_ZONE_SPAWN.y,
       );
       this.player.placeAt(TEST_ZONE_SPAWN.x, TEST_ZONE_SPAWN.y);
+      this.player.endDashVisual();
       showGoldLost(
         this,
         this.player.state.x,
@@ -469,7 +522,7 @@ export class PlayScene extends Phaser.Scene {
     };
 
     this.add
-      .text(16, 16, "ZQSD · clic · E marchand", style)
+      .text(16, 16, "ZQSD · clic · ESPACE dash · E marchand", style)
       .setScrollFactor(0)
       .setDepth(20);
 
@@ -503,8 +556,13 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(20);
 
+    this.hudDash = this.add
+      .text(16, 158, "", { ...style, fontSize: "14px", color: "#8ec8e8" })
+      .setScrollFactor(0)
+      .setDepth(20);
+
     this.hudCoords = this.add
-      .text(16, 158, "", { ...style, fontSize: "14px", color: "#8a8a96" })
+      .text(16, 178, "", { ...style, fontSize: "14px", color: "#8a8a96" })
       .setScrollFactor(0)
       .setDepth(20);
   }

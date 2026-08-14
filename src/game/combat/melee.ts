@@ -1,4 +1,5 @@
 import type { EnemyState } from "../enemies/enemy";
+import { isDashing } from "../player/dash";
 import { getEquippedWeapon } from "../player/player";
 import type { PlayerState } from "../player/player";
 
@@ -88,7 +89,7 @@ export function tryMeleeAttack(
   aimY: number,
   now: number,
 ): MeleeAttack | null {
-  if (!canMeleeAttack(now, player.lastAttackAt)) {
+  if (!canMeleeAttack(now, player.lastAttackAt) || isDashing(player, now)) {
     return null;
   }
 

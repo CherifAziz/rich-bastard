@@ -20,6 +20,7 @@ export function createMovementKeys(scene: Phaser.Scene): MovementKeys {
     Phaser.Input.Keyboard.KeyCodes.Q,
     Phaser.Input.Keyboard.KeyCodes.S,
     Phaser.Input.Keyboard.KeyCodes.D,
+    Phaser.Input.Keyboard.KeyCodes.SPACE,
   ]);
 
   return {

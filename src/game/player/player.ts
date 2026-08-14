@@ -18,6 +18,11 @@ export type PlayerState = {
   facingY: number;
   lastAttackAt: number;
   invulnerableUntil: number;
+  dashUntil: number;
+  dashCooldownUntil: number;
+  dashDirX: number;
+  dashDirY: number;
+  hitStunUntil: number;
 };
 
 export function createPlayer(x: number, y: number): PlayerState {
@@ -37,6 +42,11 @@ export function createPlayer(x: number, y: number): PlayerState {
     facingY: 0,
     lastAttackAt: -1000,
     invulnerableUntil: 0,
+    dashUntil: 0,
+    dashCooldownUntil: 0,
+    dashDirX: 1,
+    dashDirY: 0,
+    hitStunUntil: 0,
   };
 }
 
@@ -57,6 +67,9 @@ export function respawnPlayer(
   player.x = x;
   player.y = y;
   player.invulnerableUntil = 0;
+  player.dashUntil = 0;
+  player.dashCooldownUntil = 0;
+  player.hitStunUntil = 0;
 }
 
 export function velocityFromInput(

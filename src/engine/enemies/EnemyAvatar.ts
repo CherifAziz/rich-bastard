@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { EnemyState } from "../../game/enemies/enemy";
+import type { EnemyState, PendingEnemyAttack } from "../../game/enemies/enemy";
 
 const ENEMY_COLORS: Record<string, number> = {
   rat: 0xa65d3a,
@@ -17,6 +17,7 @@ export class EnemyAvatar {
   private readonly color: number;
   private readonly hpBg: Phaser.GameObjects.Rectangle;
   private readonly hpFill: Phaser.GameObjects.Rectangle;
+  private telegraph: Phaser.GameObjects.Rectangle | null = null;
   private destroyed = false;
 
   constructor(scene: Phaser.Scene, state: EnemyState) {
@@ -101,11 +102,47 @@ export class EnemyAvatar {
     this.body.setVelocity(dirX * strength, dirY * strength);
   }
 
+  showTelegraph(attack: PendingEnemyAttack, now: number): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    const centerX = attack.originX + attack.dirX * (attack.range / 2);
+    const centerY = attack.originY + attack.dirY * (attack.range / 2);
+    const angle = Math.atan2(attack.dirY, attack.dirX);
+    const pulse = 0.28 + 0.2 * Math.abs(Math.sin(now / 80));
+
+    if (!this.telegraph) {
+      this.telegraph = this.sprite.scene.add.rectangle(
+        centerX,
+        centerY,
+        attack.range,
+        attack.halfWidth * 2,
+        0xe05a4f,
+        pulse,
+      );
+      this.telegraph.setDepth(7);
+    } else {
+      this.telegraph.setPosition(centerX, centerY);
+      this.telegraph.setSize(attack.range, attack.halfWidth * 2);
+      this.telegraph.setAlpha(pulse);
+    }
+
+    this.telegraph.setRotation(angle);
+    this.telegraph.setVisible(true);
+  }
+
+  clearTelegraph(): void {
+    this.telegraph?.destroy();
+    this.telegraph = null;
+  }
+
   die(scene: Phaser.Scene): void {
     if (this.destroyed) {
       return;
     }
 
+    this.clearTelegraph();
     this.body.enable = false;
     this.body.setVelocity(0, 0);
     this.sprite.setFillStyle(this.color);
@@ -130,6 +167,7 @@ export class EnemyAvatar {
     }
 
     this.destroyed = true;
+    this.clearTelegraph();
     this.hpBg.destroy();
     this.hpFill.destroy();
     this.sprite.destroy();

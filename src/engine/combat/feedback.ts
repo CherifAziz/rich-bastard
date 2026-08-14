@@ -210,19 +210,21 @@ export function showEnemyMeleeSwing(
     dirX: number;
     dirY: number;
     range: number;
+    halfWidth?: number;
   },
 ): void {
   const centerX = attack.originX + attack.dirX * (attack.range / 2);
   const centerY = attack.originY + attack.dirY * (attack.range / 2);
   const angle = Math.atan2(attack.dirY, attack.dirX);
+  const height = (attack.halfWidth ?? 14) * 2;
 
   const swing = scene.add.rectangle(
     centerX,
     centerY,
     attack.range,
-    28,
+    height,
     0xe05a4f,
-    0.7,
+    0.75,
   );
   swing.setRotation(angle);
   swing.setDepth(12);
@@ -233,6 +235,35 @@ export function showEnemyMeleeSwing(
     duration: 110,
     onComplete: () => {
       swing.destroy();
+    },
+  });
+}
+
+export function showMiss(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+): void {
+  const label = scene.add
+    .text(x, y - 22, "MISS", {
+      fontFamily: "Segoe UI, sans-serif",
+      fontSize: "16px",
+      fontStyle: "bold",
+      color: "#d8d8e0",
+      stroke: "#1a1208",
+      strokeThickness: 3,
+    })
+    .setOrigin(0.5)
+    .setDepth(16);
+
+  scene.tweens.add({
+    targets: label,
+    y: y - 48,
+    alpha: 0,
+    duration: 420,
+    ease: "Quad.easeOut",
+    onComplete: () => {
+      label.destroy();
     },
   });
 }
