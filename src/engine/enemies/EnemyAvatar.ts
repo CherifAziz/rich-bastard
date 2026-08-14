@@ -4,6 +4,7 @@ import type { EnemyState, PendingEnemyAttack } from "../../game/enemies/enemy";
 import { DEPTH } from "../art/depth";
 import { cardinalFrom } from "../art/facing";
 import { addShadow } from "../art/props";
+import { showWeaponTrail } from "../combat/feedback";
 
 const HP_BAR_WIDTH = 28;
 const HP_BAR_HEIGHT = 4;
@@ -21,11 +22,18 @@ export class EnemyAvatar {
   private frontPose: Phaser.GameObjects.Container | null = null;
   private backPose: Phaser.GameObjects.Container | null = null;
   private sidePose: Phaser.GameObjects.Container | null = null;
-  private blade: Phaser.GameObjects.Rectangle | null = null;
+  private bladeVisual: Phaser.GameObjects.Container | null = null;
   private telegraph: Phaser.GameObjects.Container | null = null;
   private telegraphFill: Phaser.GameObjects.Rectangle | null = null;
   private facingX = 0;
   private facingY = 1;
+  private strikeDir: { x: number; y: number } | null = null;
+  private strikeProgress = 0;
+  private strikeStartedAt = 0;
+  private strikeDuration = 220;
+  private lastTip: { x: number; y: number } | null = null;
+  private lastTrailAt = 0;
+  private currentBob = 0;
   private destroyed = false;
 
   constructor(scene: Phaser.Scene, state: EnemyState) {
@@ -100,7 +108,10 @@ export class EnemyAvatar {
     this.state.x = this.sprite.x;
     this.state.y = this.sprite.y;
 
-    if (this.state.pendingAttack) {
+    if (this.strikeDir) {
+      this.facingX = this.strikeDir.x;
+      this.facingY = this.strikeDir.y;
+    } else if (this.state.pendingAttack) {
       this.facingX = this.state.pendingAttack.dirX;
       this.facingY = this.state.pendingAttack.dirY;
     } else if (Math.hypot(this.body.velocity.x, this.body.velocity.y) > 8) {
@@ -113,11 +124,30 @@ export class EnemyAvatar {
       ? Math.sin(this.sprite.scene.time.now / 90) * 1.2
       : Math.sin(this.sprite.scene.time.now / 340) * 0.5;
 
+    this.currentBob = bob;
     this.shadow.setPosition(this.sprite.x, this.sprite.y + 8);
     this.visual.setPosition(this.sprite.x, this.sprite.y + bob);
 
     if (this.isBandit) {
+      if (this.strikeDir) {
+        const now = this.sprite.scene.time.now;
+        if (this.strikeStartedAt < 0) {
+          this.strikeStartedAt = now;
+        }
+        const progress = (now - this.strikeStartedAt) / this.strikeDuration;
+        if (progress >= 1) {
+          this.strikeDir = null;
+          this.strikeProgress = 0;
+          this.lastTip = null;
+        } else {
+          this.strikeProgress = Math.max(0, progress);
+        }
+      }
       this.applyBanditFacing();
+      this.layoutBlade();
+      if (this.strikeDir) {
+        this.emitBladeTrail(this.sprite.scene);
+      }
     } else {
       this.visual.setRotation(Math.atan2(this.facingY, this.facingX) + Math.PI / 2);
     }
@@ -215,8 +245,12 @@ export class EnemyAvatar {
     this.hpBg.setVisible(false);
     this.hpFill.setVisible(false);
 
+    const fade = [this.visual, this.shadow];
+    if (this.bladeVisual) {
+      fade.push(this.bladeVisual);
+    }
     scene.tweens.add({
-      targets: [this.visual, this.shadow],
+      targets: fade,
       alpha: 0,
       scaleX: 0.35,
       scaleY: 0.35,
@@ -236,9 +270,27 @@ export class EnemyAvatar {
     this.clearTelegraph();
     this.hpBg.destroy();
     this.hpFill.destroy();
+    this.bladeVisual?.destroy();
     this.visual.destroy();
     this.shadow.destroy();
     this.sprite.destroy();
+  }
+
+  playMeleeStrike(scene: Phaser.Scene, attack: PendingEnemyAttack): void {
+    if (this.destroyed || !this.bladeVisual) {
+      return;
+    }
+
+    const length = Math.hypot(attack.dirX, attack.dirY) || 1;
+    this.strikeDir = { x: attack.dirX / length, y: attack.dirY / length };
+    this.strikeProgress = 0;
+    this.strikeStartedAt = -1;
+    this.lastTip = null;
+    this.lastTrailAt = scene.time.now;
+    this.facingX = this.strikeDir.x;
+    this.facingY = this.strikeDir.y;
+    this.applyBanditFacing();
+    this.layoutBlade();
   }
 
   private applyBanditFacing(): void {
@@ -246,29 +298,135 @@ export class EnemyAvatar {
     this.visual.setRotation(0);
     this.visual.setScale(dir === "left" ? -1 : 1, 1);
 
-    if (!this.frontPose || !this.backPose || !this.sidePose || !this.blade) {
+    if (!this.frontPose || !this.backPose || !this.sidePose) {
       return;
     }
 
     this.frontPose.setVisible(dir === "down");
     this.backPose.setVisible(dir === "up");
     this.sidePose.setVisible(dir === "left" || dir === "right");
+    this.visual.bringToTop(this.flash);
+  }
 
+  private restBladeOffset(): { x: number; y: number } {
+    const dir = cardinalFrom(this.facingX, this.facingY);
     if (dir === "up") {
-      this.blade.setPosition(8, -4);
-      this.blade.setRotation(-0.9);
-      this.visual.sendToBack(this.blade);
-    } else if (dir === "down") {
-      this.blade.setPosition(12, 8);
-      this.blade.setRotation(0.7);
-      this.visual.bringToTop(this.blade);
-      this.visual.bringToTop(this.flash);
-    } else {
-      this.blade.setPosition(15, 2);
-      this.blade.setRotation(0.4);
-      this.visual.bringToTop(this.blade);
-      this.visual.bringToTop(this.flash);
+      return { x: 8, y: -4 };
     }
+    if (dir === "down") {
+      return { x: 12, y: 8 };
+    }
+    if (dir === "left") {
+      return { x: -15, y: 2 };
+    }
+    return { x: 15, y: 2 };
+  }
+
+  private restBladeAngle(): number {
+    return Math.atan2(this.facingY, this.facingX) + 0.4;
+  }
+
+  private layoutBlade(): void {
+    if (!this.bladeVisual) {
+      return;
+    }
+
+    const pose = this.strikeDir
+      ? this.bladeStrikePose()
+      : {
+          x: this.restBladeOffset().x,
+          y: this.restBladeOffset().y,
+          angle: this.restBladeAngle(),
+          trail: false,
+        };
+
+    this.bladeVisual.setPosition(
+      this.sprite.x + pose.x,
+      this.sprite.y + this.currentBob + pose.y,
+    );
+    this.bladeVisual.setRotation(pose.angle + Math.PI / 2);
+    this.bladeVisual.setDepth(
+      this.facingY < -0.25 ? DEPTH.character - 1 : DEPTH.character + 1,
+    );
+  }
+
+  private bladeStrikePose(): {
+    x: number;
+    y: number;
+    angle: number;
+    trail: boolean;
+  } {
+    const dir = this.strikeDir ?? { x: 1, y: 0 };
+    const rest = this.restBladeOffset();
+    const restAngle = this.restBladeAngle();
+    const aim = Math.atan2(dir.y, dir.x);
+    const start = aim - 0.85;
+    const finish = aim + 0.7;
+    const p = this.strikeProgress;
+    const handX = dir.x * 12;
+    const handY = dir.y * 12;
+
+    if (p < 0.12) {
+      const t = p / 0.12;
+      return {
+        x: rest.x + (handX - rest.x) * t,
+        y: rest.y + (handY - rest.y) * t,
+        angle: restAngle + Phaser.Math.Angle.Wrap(start - restAngle) * t,
+        trail: false,
+      };
+    }
+
+    if (p < 0.55) {
+      const t = (p - 0.12) / 0.43;
+      const eased = t * t * (3 - 2 * t);
+      return {
+        x: handX,
+        y: handY,
+        angle: start + Phaser.Math.Angle.Wrap(finish - start) * eased,
+        trail: true,
+      };
+    }
+
+    const t = (p - 0.55) / 0.45;
+    const eased = t * t * (3 - 2 * t);
+    return {
+      x: handX + (rest.x - handX) * eased,
+      y: handY + (rest.y - handY) * eased,
+      angle: finish + Phaser.Math.Angle.Wrap(restAngle - finish) * eased,
+      trail: false,
+    };
+  }
+
+  private emitBladeTrail(scene: Phaser.Scene): void {
+    if (!this.bladeVisual || !this.strikeDir) {
+      return;
+    }
+
+    const pose = this.bladeStrikePose();
+    const tip = {
+      x: this.bladeVisual.x + Math.cos(pose.angle) * 20,
+      y: this.bladeVisual.y + Math.sin(pose.angle) * 20,
+    };
+
+    if (!pose.trail) {
+      this.lastTip = tip;
+      return;
+    }
+
+    const now = scene.time.now;
+    if (this.lastTip && now - this.lastTrailAt >= 16) {
+      showWeaponTrail(
+        scene,
+        this.lastTip.x,
+        this.lastTip.y,
+        tip.x,
+        tip.y,
+        THEME.banditSteel,
+        2.4,
+      );
+      this.lastTrailAt = now;
+    }
+    this.lastTip = tip;
   }
 
   private buildRat(scene: Phaser.Scene): void {
@@ -297,16 +455,19 @@ export class EnemyAvatar {
     this.frontPose = this.buildBanditFront(scene);
     this.backPose = this.buildBanditBack(scene);
     this.sidePose = this.buildBanditSide(scene);
-    this.blade = scene.add.rectangle(15, 2, 5, 18, THEME.banditSteel);
-    this.blade.setRotation(0.4);
     this.visual.add([
       this.frontPose,
       this.backPose,
       this.sidePose,
-      this.blade,
       this.flash,
     ]);
+    this.bladeVisual = scene.add.container(this.state.x, this.state.y);
+    this.bladeVisual.add(
+      scene.add.rectangle(0, 0, 5, 20, THEME.banditSteel).setOrigin(0.5, 1),
+    );
+    this.bladeVisual.setDepth(DEPTH.character + 1);
     this.applyBanditFacing();
+    this.layoutBlade();
   }
 
   private buildBanditFront(scene: Phaser.Scene): Phaser.GameObjects.Container {

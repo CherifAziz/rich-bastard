@@ -25,9 +25,8 @@ import {
 } from "../../game/world/exploration";
 import {
   showDamageNumber,
-  showEnemyMeleeSwing,
+  showHitImpact,
   showKillReward,
-  showMeleeSwing,
   showMiss,
   showPickupFeedback,
   showYouDied,
@@ -210,8 +209,7 @@ export class ExplorationScene extends Phaser.Scene {
       return;
     }
 
-    this.player.flashAttack(this);
-    showMeleeSwing(this, attack);
+    this.player.playMeleeAttack(this, attack);
 
     for (const hit of attack.hits) {
       const avatar = this.enemies.find((enemy) => enemy.state === hit.enemy);
@@ -220,6 +218,7 @@ export class ExplorationScene extends Phaser.Scene {
       }
 
       showDamageNumber(this, avatar.sprite.x, avatar.sprite.y, hit.damage);
+      showHitImpact(this, avatar.sprite.x, avatar.sprite.y);
       avatar.flashHit(this);
       avatar.syncState();
 
@@ -244,6 +243,9 @@ export class ExplorationScene extends Phaser.Scene {
       const dy = hit.enemy.y - this.player.state.y;
       const length = Math.hypot(dx, dy) || 1;
       avatar.applyKnockback(dx / length, dy / length, attack.knockback);
+      if (attack.knockback >= 240) {
+        this.cameras.main.shake(70, 0.0018);
+      }
     }
   }
 
@@ -260,7 +262,7 @@ export class ExplorationScene extends Phaser.Scene {
     }
 
     enemy.clearTelegraph();
-    showEnemyMeleeSwing(this, result.telegraph);
+    enemy.playMeleeStrike(this, result.telegraph);
 
     if (result.kind === "miss") {
       showMiss(this, result.telegraph.originX, result.telegraph.originY);
@@ -274,6 +276,7 @@ export class ExplorationScene extends Phaser.Scene {
       result.damage,
       THEME_HEX.damage,
     );
+    showHitImpact(this, this.player.sprite.x, this.player.sprite.y, 0xe05a4f);
     this.player.flashHit(this);
     this.player.applyKnockback(
       result.telegraph.dirX,

@@ -1,7 +1,5 @@
 import Phaser from "phaser";
 import { FONT, THEME, THEME_HEX } from "../../data/theme";
-import type { MeleeAttack } from "../../game/combat/melee";
-import { MELEE_SWING_MS } from "../../game/combat/melee";
 import { DEPTH } from "../art/depth";
 
 function floatText(
@@ -38,31 +36,58 @@ function floatText(
   });
 }
 
-export function showMeleeSwing(
+export function showWeaponTrail(
   scene: Phaser.Scene,
-  attack: MeleeAttack,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: number,
+  width: number,
 ): void {
-  const centerX = attack.originX + attack.dirX * (attack.range / 2);
-  const centerY = attack.originY + attack.dirY * (attack.range / 2);
-  const angle = Math.atan2(attack.dirY, attack.dirX);
-
-  const swing = scene.add.rectangle(
-    centerX,
-    centerY,
-    attack.range,
-    attack.halfWidth * 2,
-    THEME.swing,
-    0.72,
-  );
-  swing.setRotation(angle);
-  swing.setDepth(DEPTH.fx);
+  const trail = scene.add.graphics().setDepth(DEPTH.fx);
+  trail.lineStyle(width, color, 0.5);
+  trail.beginPath();
+  trail.moveTo(x1, y1);
+  trail.lineTo(x2, y2);
+  trail.strokePath();
 
   scene.tweens.add({
-    targets: swing,
+    targets: trail,
     alpha: 0,
-    duration: MELEE_SWING_MS,
+    duration: 80,
     onComplete: () => {
-      swing.destroy();
+      trail.destroy();
+    },
+  });
+}
+
+export function showHitImpact(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  color: number = THEME.swing,
+): void {
+  const burst = scene.add.graphics().setDepth(DEPTH.fx);
+  burst.fillStyle(color, 0.75);
+  burst.fillCircle(x, y, 4.5);
+  burst.lineStyle(1.6, color, 0.95);
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2 + 0.2;
+    burst.lineBetween(
+      x + Math.cos(angle) * 2,
+      y + Math.sin(angle) * 2,
+      x + Math.cos(angle) * 11,
+      y + Math.sin(angle) * 11,
+    );
+  }
+
+  scene.tweens.add({
+    targets: burst,
+    alpha: 0,
+    duration: 150,
+    onComplete: () => {
+      burst.destroy();
     },
   });
 }
@@ -150,44 +175,6 @@ export function showPurchaseFeedback(
     54,
     1400,
   );
-}
-
-export function showEnemyMeleeSwing(
-  scene: Phaser.Scene,
-  attack: {
-    originX: number;
-    originY: number;
-    dirX: number;
-    dirY: number;
-    range: number;
-    halfWidth?: number;
-  },
-): void {
-  const centerX = attack.originX + attack.dirX * (attack.range / 2);
-  const centerY = attack.originY + attack.dirY * (attack.range / 2);
-  const angle = Math.atan2(attack.dirY, attack.dirX);
-  const height = (attack.halfWidth ?? 14) * 2;
-
-  const swing = scene.add.rectangle(
-    centerX,
-    centerY,
-    attack.range,
-    height,
-    THEME.telegraphFill,
-    0.8,
-  );
-  swing.setStrokeStyle(2, THEME.telegraphEdge, 0.9);
-  swing.setRotation(angle);
-  swing.setDepth(DEPTH.fx);
-
-  scene.tweens.add({
-    targets: swing,
-    alpha: 0,
-    duration: 110,
-    onComplete: () => {
-      swing.destroy();
-    },
-  });
 }
 
 export function showMiss(
