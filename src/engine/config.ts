@@ -10,7 +10,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
   return {
     type: Phaser.AUTO,
     parent: "game",
-    backgroundColor: "#1a1a24",
+    backgroundColor: "#1c1814",
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,

@@ -31,10 +31,9 @@ import { tickPlayerMotion } from "../player/playerMotion";
 import { getGameSession } from "../session";
 import { GameHud } from "../ui/GameHud";
 import { MerchantPanel } from "../ui/MerchantPanel";
-import { createActionKeys, createBlockers, drawFloor } from "../world/drawZone";
+import { createActionKeys, createBlockers } from "../world/drawZone";
 import { InteractMarker } from "../world/InteractMarker";
-
-const TOWN_FLOOR_COLOR = 0x3a3832;
+import { drawTownWorld } from "../world/townArt";
 
 export class TownScene extends Phaser.Scene {
   private player!: PlayerAvatar;
@@ -60,19 +59,7 @@ export class TownScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
     this.cameras.main.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
 
-    drawFloor(this, TOWN_WIDTH, TOWN_HEIGHT, TOWN_FLOOR_COLOR);
-    this.add
-      .text(TOWN_WIDTH / 2, 80, "VILLE", {
-        fontFamily: "Segoe UI, sans-serif",
-        fontSize: "28px",
-        fontStyle: "bold",
-        color: "#e8c547",
-        stroke: "#1a1208",
-        strokeThickness: 5,
-      })
-      .setOrigin(0.5)
-      .setDepth(3);
-
+    drawTownWorld(this);
     const blockers = createBlockers(this, TOWN_WALLS, TOWN_OBSTACLES);
 
     this.player = new PlayerAvatar(this, session.player);
@@ -114,7 +101,7 @@ export class TownScene extends Phaser.Scene {
 
     this.hud = new GameHud(
       this,
-      "ZQSD · ESPACE dash · E parler / partir",
+      "ZQSD  ·  ESPACE dash  ·  E parler / partir",
       false,
     );
     this.game.canvas.setAttribute("tabindex", "0");

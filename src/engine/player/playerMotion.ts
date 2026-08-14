@@ -19,9 +19,13 @@ export function tickPlayerMotion(
   locked: boolean,
   wasDashing: boolean,
 ): boolean {
+  const axis = readMoveAxis(moveKeys);
+  const moving = axis.x !== 0 || axis.y !== 0;
+
   if (locked) {
     player.applyMoveInput(0, 0);
     player.syncState();
+    player.tickVisual(time, false);
     if (wasDashing) {
       player.endDashVisual();
     }
@@ -29,7 +33,6 @@ export function tickPlayerMotion(
   }
 
   if (Phaser.Input.Keyboard.JustDown(dashKey)) {
-    const axis = readMoveAxis(moveKeys);
     if (tryStartDash(player.state, axis.x, axis.y, time)) {
       player.flashDash(scene);
     }
@@ -44,10 +47,10 @@ export function tickPlayerMotion(
     const velocity = dashVelocity(player.state);
     player.applyVelocity(velocity.x, velocity.y);
   } else if (time >= player.state.hitStunUntil) {
-    const axis = readMoveAxis(moveKeys);
     player.applyMoveInput(axis.x, axis.y);
   }
 
   player.syncState();
+  player.tickVisual(time, moving || dashing);
   return dashing;
 }

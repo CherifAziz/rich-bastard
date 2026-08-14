@@ -1,0 +1,16 @@
+export const DEPTH = {
+  floor: 0,
+  floorDetail: 1,
+  path: 2,
+  shadow: 3,
+  wall: 4,
+  prop: 5,
+  character: 10,
+  loot: 11,
+  fx: 12,
+  canopy: 13,
+  telegraph: 15,
+  floatText: 16,
+  prompt: 18,
+  hud: 40,
+} as const;

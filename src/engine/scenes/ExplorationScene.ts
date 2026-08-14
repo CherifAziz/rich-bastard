@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { ENEMY_BY_ID } from "../../data/enemies";
+import { THEME_HEX } from "../../data/theme";
 import { tickEnemyMelee } from "../../game/combat/enemyMelee";
 import { tryMeleeAttack } from "../../game/combat/melee";
 import { applyDeathGoldPenalty } from "../../game/economy/death";
@@ -13,7 +14,6 @@ import {
 } from "../../game/rewards/rewards";
 import { isInRange } from "../../game/world/geometry";
 import {
-  DANGER_ZONE,
   EXPLORATION_ENEMIES,
   EXPLORATION_ENTRY,
   EXPLORATION_EXIT,
@@ -41,15 +41,14 @@ import { PlayerAvatar } from "../player/PlayerAvatar";
 import { tickPlayerMotion } from "../player/playerMotion";
 import { getGameSession } from "../session";
 import { GameHud } from "../ui/GameHud";
-import { createActionKeys, createBlockers, drawFloor } from "../world/drawZone";
+import { createActionKeys, createBlockers } from "../world/drawZone";
 import { InteractMarker } from "../world/InteractMarker";
+import { drawExplorationWorld } from "../world/explorationArt";
 
-const FLOOR_COLOR = 0x2a3d32;
 const HIT_KNOCKBACK = 220;
 const PLAYER_HIT_KNOCKBACK = 280;
 const LOOT_PICKUP_RANGE = 24;
 const DEATH_DISPLAY_MS = 1200;
-const DANGER_FLOOR_COLOR = 0x3d2428;
 
 export class ExplorationScene extends Phaser.Scene {
   private player!: PlayerAvatar;
@@ -83,8 +82,7 @@ export class ExplorationScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, EXPLORATION_WIDTH, EXPLORATION_HEIGHT);
     this.cameras.main.setBounds(0, 0, EXPLORATION_WIDTH, EXPLORATION_HEIGHT);
 
-    drawFloor(this, EXPLORATION_WIDTH, EXPLORATION_HEIGHT, FLOOR_COLOR);
-    this.drawDangerZone();
+    drawExplorationWorld(this);
     const blockers = createBlockers(
       this,
       EXPLORATION_WALLS,
@@ -100,6 +98,7 @@ export class ExplorationScene extends Phaser.Scene {
       EXPLORATION_EXIT.y,
       "RETOUR VILLE",
       "E — RETOURNER EN VILLE",
+      false,
     );
 
     this.spawnEnemies();
@@ -124,7 +123,7 @@ export class ExplorationScene extends Phaser.Scene {
 
     this.hud = new GameHud(
       this,
-      "ZQSD · clic · ESPACE dash · E retour ville",
+      "ZQSD  ·  clic  ·  ESPACE dash  ·  E retour ville",
       true,
     );
     this.game.canvas.setAttribute("tabindex", "0");
@@ -272,7 +271,7 @@ export class ExplorationScene extends Phaser.Scene {
       this.player.sprite.x,
       this.player.sprite.y,
       result.damage,
-      "#e05a4f",
+      THEME_HEX.damage,
     );
     this.player.flashHit(this);
     this.player.applyKnockback(
@@ -323,60 +322,6 @@ export class ExplorationScene extends Phaser.Scene {
         createEnemy(definition, `${spawn.typeId}-${index + 1}`, spawn.x, spawn.y),
       );
     });
-  }
-
-  private drawDangerZone(): void {
-    this.add
-      .rectangle(
-        DANGER_ZONE.x + DANGER_ZONE.width / 2,
-        DANGER_ZONE.y + DANGER_ZONE.height / 2,
-        DANGER_ZONE.width,
-        DANGER_ZONE.height,
-        DANGER_FLOOR_COLOR,
-      )
-      .setDepth(0.5);
-
-    const border = this.add.graphics();
-    border.setDepth(2);
-    border.lineStyle(4, 0xc45c4a, 0.85);
-    border.strokeRect(
-      DANGER_ZONE.x,
-      DANGER_ZONE.y + 8,
-      DANGER_ZONE.width - 8,
-      DANGER_ZONE.height - 16,
-    );
-    border.lineStyle(6, 0xc45c4a, 1);
-    border.lineBetween(
-      DANGER_ZONE.x,
-      48,
-      DANGER_ZONE.x,
-      EXPLORATION_HEIGHT - 48,
-    );
-
-    const signStyle = {
-      fontFamily: "Segoe UI, sans-serif",
-      fontSize: "28px",
-      fontStyle: "bold",
-      color: "#e05a4f",
-      stroke: "#1a1208",
-      strokeThickness: 5,
-    };
-
-    this.add
-      .text(DANGER_ZONE.x + 24, 220, "DANGER", signStyle)
-      .setOrigin(0, 0.5)
-      .setDepth(3);
-    this.add
-      .text(DANGER_ZONE.x + 24, 258, "ZONE", {
-        ...signStyle,
-        fontSize: "22px",
-      })
-      .setOrigin(0, 0.5)
-      .setDepth(3);
-    this.add
-      .text(DANGER_ZONE.x + 24, 900, "DANGER", signStyle)
-      .setOrigin(0, 0.5)
-      .setDepth(3);
   }
 
   private spawnLoot(
