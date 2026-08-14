@@ -8,6 +8,7 @@ import { getItemQuantity } from "../../game/inventory/inventory";
 import { isInTalkRange } from "../../game/merchants/merchant";
 import { isInRange } from "../../game/world/geometry";
 import { preparePlayerForScene } from "../../game/player/status";
+import { persistPlayerProgress } from "../../game/save/saveService";
 import {
   TOWN_EXIT,
   TOWN_HEIGHT,
@@ -56,6 +57,7 @@ export class TownScene extends Phaser.Scene {
 
     const session = getGameSession(this);
     preparePlayerForScene(session.player, TOWN_SPAWN.x, TOWN_SPAWN.y);
+    persistPlayerProgress(session.player);
 
     this.physics.world.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
     this.cameras.main.setBounds(0, 0, TOWN_WIDTH, TOWN_HEIGHT);
@@ -189,6 +191,7 @@ export class TownScene extends Phaser.Scene {
     const weapon = WEAPON_BY_ID[result.weaponId];
 
     if (result.success && weapon) {
+      persistPlayerProgress(this.player.state);
       this.merchantPanel.showFeedback(
         `PURCHASED\n${result.weaponName}\n-$${result.goldSpent}`,
       );
@@ -216,6 +219,7 @@ export class TownScene extends Phaser.Scene {
         : sellItem(this.player.state, itemId, 1);
 
     if (result.success) {
+      persistPlayerProgress(this.player.state);
       this.merchantPanel.showFeedback(
         `Sold ${result.itemName} ×${result.quantitySold}  +$${result.goldGained}`,
       );

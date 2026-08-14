@@ -7,6 +7,7 @@ import { applyDeathGoldPenalty } from "../../game/economy/death";
 import { chaseVelocity, createEnemy } from "../../game/enemies/enemy";
 import { addItem } from "../../game/inventory/inventory";
 import { preparePlayerForScene } from "../../game/player/status";
+import { persistPlayerProgress } from "../../game/save/saveService";
 import {
   createGroundLoot,
   grantKillReward,
@@ -226,6 +227,7 @@ export class ExplorationScene extends Phaser.Scene {
       if (hit.killed) {
         const reward = grantKillReward(this.player.state, hit.enemy);
         if (reward) {
+          persistPlayerProgress(this.player.state);
           showKillReward(
             this,
             avatar.sprite.x,
@@ -306,6 +308,7 @@ export class ExplorationScene extends Phaser.Scene {
       const session = getGameSession(this);
       const penalty = applyDeathGoldPenalty(this.player.state);
       session.lastGoldLost = penalty.goldLost;
+      persistPlayerProgress(this.player.state);
       this.scene.start("town");
     });
   }
@@ -371,6 +374,7 @@ export class ExplorationScene extends Phaser.Scene {
     }
 
     addItem(this.player.state.inventory, drop.loot.itemId, drop.loot.quantity);
+    persistPlayerProgress(this.player.state);
     showPickupFeedback(
       this,
       this.player.state.x,

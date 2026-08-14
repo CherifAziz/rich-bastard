@@ -1,10 +1,10 @@
 import Phaser from "phaser";
-import { createGameSession, type GameSession } from "../game/state/gameSession";
+import { loadOrCreateGameSession, type GameSession } from "../game/state/gameSession";
 
 export function getGameSession(scene: Phaser.Scene): GameSession {
   let session = scene.registry.get("session") as GameSession | undefined;
   if (!session) {
-    session = createGameSession();
+    session = loadOrCreateGameSession();
     scene.registry.set("session", session);
   }
   return session;

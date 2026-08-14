@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { createGameSession } from "../game/state/gameSession";
+import { loadOrCreateGameSession } from "../game/state/gameSession";
 import { ExplorationScene } from "./scenes/ExplorationScene";
 import { TownScene } from "./scenes/TownScene";
 
@@ -27,7 +27,7 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
     scene: [TownScene, ExplorationScene],
     callbacks: {
       preBoot: (game) => {
-        game.registry.set("session", createGameSession());
+        game.registry.set("session", loadOrCreateGameSession());
       },
     },
     banner: false,
